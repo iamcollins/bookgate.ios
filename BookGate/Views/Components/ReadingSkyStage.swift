@@ -80,16 +80,20 @@ private struct Moon: View {
                                      startRadius: 2, endRadius: 44))
                 .frame(width: 70, height: 70)
                 .overlay {
-                    // faint craters — the grey mottling that reads as a moon rather than a sun
+                    // soft, uneven grey patches (the maria) + a couple of sharper craters — the
+                    // mottled texture that reads as a moon rather than a flat sun.
                     ZStack {
-                        crater(15, -9, -6, 0.16)
-                        crater(10, 12, 8, 0.13)
-                        crater(7, 4, -13, 0.11)
-                        crater(6, -14, 9, 0.10)
+                        mottle(32, -7, 7, 0x847C6C, 0.16, 9)
+                        mottle(24, 13, -8, 0x8B8373, 0.14, 8)
+                        mottle(20, -15, -12, 0x7C7565, 0.13, 8)
+                        mottle(15, 4, 16, 0x8F8676, 0.12, 6)
+                        mottle(14, 16, 12, 0xEEE8DB, 0.16, 6)   // a lighter highlight patch
+                        crater(6, -6, -10, 0.18, 1.2)
+                        crater(5, 10, 4, 0.16, 1.0)
                     }
                     .clipShape(Circle())
                 }
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1).blendMode(.plusLighter))
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.14), lineWidth: 1).blendMode(.plusLighter))
         }
         .shadow(color: Color(hex: 0xEADFC6, opacity: 0.28 * nightness), radius: 22)
         .animation(reduceMotion ? nil : .easeInOut(duration: 5).repeatForever(autoreverses: true), value: breathe)
@@ -97,8 +101,14 @@ private struct Moon: View {
         .allowsHitTesting(false)
     }
 
-    private func crater(_ d: CGFloat, _ x: CGFloat, _ y: CGFloat, _ o: Double) -> some View {
-        Circle().fill(Color(hex: 0x8F8676, opacity: o)).frame(width: d, height: d).offset(x: x, y: y)
+    /// A soft, blurred grey blob — the moon's uneven maria shading.
+    private func mottle(_ d: CGFloat, _ x: CGFloat, _ y: CGFloat, _ hex: UInt32, _ o: Double, _ blur: CGFloat) -> some View {
+        Circle().fill(Color(hex: hex, opacity: o)).frame(width: d, height: d).offset(x: x, y: y).blur(radius: blur)
+    }
+
+    /// A smaller, crisper crater.
+    private func crater(_ d: CGFloat, _ x: CGFloat, _ y: CGFloat, _ o: Double, _ blur: CGFloat) -> some View {
+        Circle().fill(Color(hex: 0x6F685A, opacity: o)).frame(width: d, height: d).offset(x: x, y: y).blur(radius: blur)
     }
 }
 

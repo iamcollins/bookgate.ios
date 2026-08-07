@@ -74,13 +74,16 @@ struct AlarmSetupStep: View {
                 .font(BGFont.serifItalicDynamic(16, .regular, relativeTo: .callout))
                 .foregroundStyle(palette.brassValue)
                 .multilineTextAlignment(.center)
+                // A tight dark halo so the line stays legible when the risen moon sits behind it.
+                .shadow(color: .black.opacity(0.6), radius: 4)
+                .shadow(color: .black.opacity(0.4), radius: 9)
                 .id(line)
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.3), value: line)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
-        .shadow(color: .black.opacity(0.35), radius: 10, y: 3)
+        .shadow(color: .black.opacity(0.3), radius: 10, y: 3)
     }
 
     private func heroReadout(_ s: Schedule) -> some View {
