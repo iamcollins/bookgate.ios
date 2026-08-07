@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>BookGate rings your nightly reading alarm so it reaches you through Silent mode and Focus.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>BookGate uses the camera on-device: the front camera confirms you and your book at reading time and saves that night's journal photo, and the back camera photographs a book cover you add. Photos never leave your phone.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>BookGate records your optional spoken takeaway after a reading session. Recordings are stored on-device and never uploaded.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Newsreader.ttf</string>
+		<string>Newsreader-Italic.ttf</string>
+	</array>
+</dict>
+</plist>

@@ -1,0 +1,189 @@
+import SwiftUI
+
+/// Today (screen 4b / light 2a). The book is the screen: its cover bleeds off the top under a
+/// wordmark row; a bottom glass sheet carries Tonight, the one primary action, and the last
+/// takeaway. Variants: missed-yesterday (calm, quiet chip, no red) and already-read-today
+/// (primary becomes secondary).
+struct TodayView: View {
+    @Environment(AppServices.self) private var services
+    @Environment(\.bgPalette) private var palette
+
+    @State private var showLengthSheet = false
+    @State private var showSettings = false
+
+    private var book: Book? { services.books.currentReading }
+    private var streak: Int { services.progress.liveStreak }
+    private var readToday: Bool { services.progress.readToday }
+    private var missedYesterday: Bool { services.progress.missedYesterday }
+    private var alarm: Schedule? { services.store.schedule(for: nil) }
+
+    private var timeLabel: String { alarm?.timeLabel ?? "9:00 PM" }
+    private var lengthLabel: String { "\(services.settings.effectiveTonightLength) min" }
+
+    var body: some View {
+        GeometryReader { geo in
+            let coverHeight = min(440, geo.size.height * 0.54)
+            ZStack(alignment: .top) {
+                coverHeader(height: coverHeight, width: geo.size.width)
+
+                VStack(spacing: 0) {
+                    wordmarkRow
+                        .padding(.horizontal, 20)
+                        .padding(.top, geo.safeAreaInsets.top + 6)
+                    Spacer(minLength: 0)
+                    bottomSheet
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 118)   // clear the floating tab bar
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .ignoresSafeArea(edges: .top)
+        }
+        .sheet(isPresented: $showLengthSheet) {
+            TonightLengthSheet()
+                .environment(services)
+                .presentationDetents([.height(360)])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack { SettingsView() }
+                .environment(services)
+        }
+    }
+
+    // MARK: Cover header
+
+    private func coverHeader(height: CGFloat, width: CGFloat) -> some View {
+        ZStack(alignment: .top) {
+            Group {
+                if let book, let img = services.books.coverImage(for: book) {
+                    Image(uiImage: img).resizable().scaledToFill()
+                } else {
+                    // The Today cover gradient (155deg warm cloth) + spine line.
+                    LinearGradient(colors: [Color(hex: 0x6D5340), Color(hex: 0x8A6A4E), Color(hex: 0x5D4635)],
+                                   startPoint: UnitPoint(x: 0.15, y: 0), endPoint: UnitPoint(x: 0.85, y: 1))
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(Color.black.opacity(0.25)).frame(width: 1.5).padding(.leading, 14)
+                    }
+                }
+            }
+            .frame(width: width, height: height)
+            .clipped()
+            // Scrim: dark at top for wordmark legibility, fading to the theme base at the bottom.
+            .overlay {
+                LinearGradient(stops: [
+                    .init(color: Color(hex: 0x100C09, opacity: 0.55), location: 0.0),
+                    .init(color: .clear, location: 0.24),
+                    .init(color: Color(hex: 0x100C09, opacity: 0.34), location: 0.66),
+                    .init(color: palette.base, location: 1.0),
+                ], startPoint: .top, endPoint: .bottom)
+            }
+        }
+    }
+
+    // MARK: Wordmark row (always over the dark cover → light ink)
+
+    private var wordmarkRow: some View {
+        HStack(alignment: .center) {
+            Text("BOOKGATE")
+                .font(BGFont.ui(10.5, .semibold)).tracking(1.6)
+                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.75))
+            Spacer()
+            streakChip
+            Button { showSettings = true } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.75))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Settings")
+        }
+    }
+
+    private var streakChip: some View {
+        HStack(spacing: 6) {
+            BookmarkShape(notch: 0.74).fill(palette.brassObject).frame(width: 10, height: 14)
+            Text("\(streak)")
+                .font(BGFont.serif(15, .medium))
+                .foregroundStyle(Color(hex: 0xF2D6AB))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Capsule().fill(Color(hex: 0x140E09, opacity: 0.38)))
+        .opacity(missedYesterday ? 0.55 : 1)      // chip goes quiet on a miss — no red, no drama
+        .accessibilityLabel("\(streak) night streak")
+    }
+
+    // MARK: Bottom glass sheet
+
+    private var bottomSheet: some View {
+        VStack(spacing: 16) {
+            if missedYesterday && !readToday {
+                Text("Last night slipped by. Tonight is a fresh page.")
+                    .font(BGFont.aside(14.5))
+                    .foregroundStyle(palette.ink(.body))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+
+            tonightRow
+
+            if readToday {
+                Button("You've read today") {}
+                    .buttonStyle(GlassButtonStyle(minHeight: 56))
+                    .disabled(true)
+            } else {
+                Button("Begin Reading Now") { beginReading() }
+                    .buttonStyle(PrimaryActionButtonStyle())
+            }
+
+            lastTakeawayRow
+        }
+        .padding(18)
+        .glass(.prominent, cornerRadius: 28)
+    }
+
+    private var tonightRow: some View {
+        Button { showLengthSheet = true } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tonight").sectionLabel()
+                    Text("\(timeLabel) · \(lengthLabel)")
+                        .font(BGFont.serif(22, .medium))
+                        .foregroundStyle(palette.ink(.hero))
+                    Text(shieldSubtitle)
+                        .font(BGFont.caption)
+                        .foregroundStyle(palette.ink(.secondary))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(palette.ink(.secondary))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity)
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(palette.hairline, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Change tonight's reading length")
+    }
+
+    private var shieldSubtitle: String {
+        let n = services.shield.shieldedCount
+        if n == 0 { return String(localized: "Choose apps to shield · tap to change") }
+        return String(localized: "\(n) apps shielded · tap to change")
+    }
+
+    @ViewBuilder private var lastTakeawayRow: some View {
+        // Real inline playback arrives with the takeaway archive (task #8).
+        EmptyView()
+    }
+
+    // MARK: Actions
+
+    private func beginReading() {
+        services.session.beginReadingNow()
+    }
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Template — NOT yet wired into the build. When the com.apple.developer.family-controls
+  (Distribution) entitlement is granted, move this to BookGate/BookGate.entitlements and set
+  CODE_SIGN_ENTITLEMENTS = BookGate/BookGate.entitlements on the app target (and add the same
+  entitlement + the App Group to the two extension targets). See README.md.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.family-controls</key>
+	<true/>
+	<!-- Add when the shared selection moves to an App Group (see README step 2):
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.app.bookgate.shared</string>
+	</array>
+	-->
+</dict>
+</plist>

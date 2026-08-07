@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600&display=swap" rel="stylesheet">
+<style>
+  doc-page:not(:defined){visibility:hidden}
+  body{margin:0}
+  a{color:#8a5a2b}a:hover{color:#6b4520}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+
+<doc-page margin="0.8in">
+
+  <div style="font:600 10px ui-monospace,Menlo,monospace;letter-spacing:2px;color:#8a5a2b">BOOKGATE · DESIGN HANDOFF</div>
+  <h1 style="margin:14px 0 0;font:500 40px/1.12 Newsreader,Georgia,serif;color:#1a1512;letter-spacing:-.5px">BookGate — the reading-alarm app, as designed</h1>
+  <p style="margin:14px 0 0;font:400 15px/1.6 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.62);max-width:44em">Tokens, screen map and behaviour rules for the screens locked in design review, plus the open items that still need product decisions. Every screen referenced by id (<code style="font:500 13px ui-monospace,Menlo,monospace">4b</code>, <code style="font:500 13px ui-monospace,Menlo,monospace">11d</code>) exists in the review document and is the source of truth for layout; this document is the source of truth for values and behaviour.</p>
+  <p style="margin:10px 0 0;font:400 13px/1.6 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.5)">Status: core night flow, library, progress and onboarding locked · light theme complete · localisation sampled · prices, Settings root and trial-expired outstanding.</p>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">1 · What the app is</h2>
+  <p style="margin:12px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em">BookGate is an alarm for your book. At a set time each night the app rings, asks you to show it the book with the camera, shields the apps that usually win that hour, and runs a quiet timed session. Afterwards you record a thirty-second takeaway in your own voice. There is no free tier: a three-day trial, then a subscription.</p>
+  <p style="margin:12px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em">Two rules shaped every screen. <b>Nothing shames the user</b> — a missed night is stated once, in plain words, with no red and no reset drama. And <b>the word "reminder" never appears</b>; it is an alarm, and it behaves like one.</p>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">2 · Type and motif</h2>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;font:400 13.5px/1.5 -apple-system,system-ui,sans-serif">
+    <thead><tr style="text-align:left"><th style="padding:8px 10px 8px 0;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">ROLE</th><th style="padding:8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">FACE</th><th style="padding:8px 0 8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">USAGE</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:9px 10px 9px 0;border-bottom:1px solid rgba(0,0,0,.1)">Display / book</td><td style="padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Newsreader 300–500</td><td style="padding:9px 0 9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Screen titles, book titles, all large numerals (streak, clock, totals), italic asides</td></tr>
+      <tr><td style="padding:9px 10px 9px 0;border-bottom:1px solid rgba(0,0,0,.1)">UI</td><td style="padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">SF / system-ui 400–650</td><td style="padding:9px 0 9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Labels, buttons, rows, section captions (10px/600, 1.4px tracking, uppercase)</td></tr>
+      <tr><td style="padding:9px 10px 9px 0;border-bottom:1px solid rgba(0,0,0,.1)">Data</td><td style="padding:9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">ui-monospace</td><td style="padding:9px 0 9px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Elapsed / remaining timecodes only (<code>0:16 / 0:34</code>), tabular numerals</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:14px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em"><b>The motif is a brass bookmark</b> — a ribbon with a notched foot (<code style="font:500 12.5px ui-monospace,Menlo,monospace">clip-path: polygon(0 0,100% 0,100% 100%,50% 74%,0 100%)</code>). It is the Today tab icon, the streak chip, the timeline node on takeaways, and the filled day in the week row. It is never decorative: if a bookmark is drawn, it stands for a night that was read.</p>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">3 · Tokens — dark (default)</h2>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;font:400 13px/1.5 -apple-system,system-ui,sans-serif">
+    <thead><tr style="text-align:left"><th style="padding:8px 10px 8px 0;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">TOKEN</th><th style="padding:8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">VALUE</th><th style="padding:8px 0 8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">NOTES</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>base</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#100C09</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Screen floor behind the ambient</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>ambient</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>radial-gradient(125% 80% at 50% -8%, #3B2A1A, #241A12 42%, #150F0B 78%, #100C09)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Lamp-in-the-dark; centre moves per screen, stops don't</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>glow</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(236,182,112,.26)</code> / <code>rgba(198,124,74,.2)</code>, blur 32px</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Two drifting blobs max per screen, 18–23s loops</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>ink</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#F7EFE4</code>, steps at .85 / .62 / .5 / .45 / .4 / .3</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Body .62, captions .45, disabled .3</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>brass-text</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#E9B872</code> label · <code>#F2D6AB</code> value</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">The only hue in the palette</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>brass-object</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>linear-gradient(180deg,#F0C68F,#D79A56)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Bookmarks, nodes, filled days</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>action</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>linear-gradient(180deg,#F2CB95,#DA9E58 58%,#C0863F)</code> on <code>#241606</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">One primary action per screen, never two</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>glass</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">fill <code>rgba(255,240,222,.07–.10)</code> · border <code>rgba(255,232,204,.14–.17)</code> · <code>blur(20–24px)</code> · <code>inset 0 1px 0 rgba(255,240,220,.2)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Shield barrier goes to 13% fill / blur 34px</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>hairline</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(255,232,204,.12)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Dividers, timeline spines</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>shadow</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>0 18px 40px -20px rgba(0,0,0,.7)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Cards; covers go to .75–.8</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>radius</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">44 screen · 28 sheet · 22–24 card · 17–20 button · 13–15 chip · 9 grid cell</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Covers keep a real spine: <code>3px 7px 7px 3px</code></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)"><code>motion</code></td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">drift 18–23s · breathe 2.4–12s · pop .34s</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Ambient only; nothing animates on a tap except the lamp</td></tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">4 · Tokens — light</h2>
+  <p style="margin:12px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em">Reference screens: <b>11a–11l</b> (Library, Book details, Takeaways, Progress, Year strip, Settings → Reading, and the seven onboarding steps). Light is a <b>surface remap only</b> — no screen changes layout, spacing or copy between themes. Map every value in the same row; do not invent intermediate values.</p>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;font:400 13px/1.5 -apple-system,system-ui,sans-serif">
+    <thead><tr style="text-align:left"><th style="padding:8px 10px 8px 0;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">TOKEN</th><th style="padding:8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">DARK</th><th style="padding:8px 0 8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">LIGHT</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">base</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#100C09</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#F1E8DA</code></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">ambient</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">#3B2A1A → #150F0B</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#FDF6E9, #F2E8D8 46%, #E4D8C4</code> — same geometry per screen</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">glow</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(236,182,112,.26)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(226,168,98,.3)</code></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">ink</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#F7EFE4</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#231A12</code>; every de-emphasised step is <b>~0.08 heavier</b> than its dark twin — paper does not carry low alpha</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">brass-text</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#E9B872 / #F2D6AB</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#8A5A22</code> — darkened for contrast</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">brass-object</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">#F0C68F → #D79A56</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#E9B872 → #C98F4A</code> — objects stay brass, only text darkens</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">action</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">#F2CB95 → #C0863F on #241606</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>#EFC08C → #D2954F 58% → #B87A2E</code> on <code>#2A1A08</code></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">glass</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">7–10% white fill</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><b>68–78%</b> <code>rgba(255,252,246,·)</code> · border <code>rgba(255,255,255,.92)</code> · <code>inset 0 1px 0 #FFF</code></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">hairline</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">warm white 12%</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(35,26,18,.1)</code> — flips to ink, never stays white</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">recess / stripe</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">white 3–5%</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(35,26,18,.035–.06)</code> — empty heatmap cells and placeholder stripes are <b>ink-tinted</b>, not white</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">shadow</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(0,0,0,·)</code></td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(90,60,30,·)</code> at roughly half the alpha</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">heatmap fill</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">brass .35/.5/.7/.9</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)"><code>rgba(201,143,74,·)</code> at .38/.55/.74/.92, numerals flip to ink on the two darkest steps</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:14px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em"><b>Theme-independent, in both directions:</b> book covers (they are objects, not UI), the dynamic island, and the camera viewfinder (a live feed). <b>The night flow does not follow the theme</b> — alarm, camera gate, session, shield and complete stay dark at all times, because a white screen at 9pm defeats the product. Light mode follows the system setting elsewhere, with a manual override in Settings.</p>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">5 · Screen map</h2>
+  <table style="width:100%;margin-top:14px;border-collapse:collapse;font:400 13px/1.5 -apple-system,system-ui,sans-serif">
+    <thead><tr style="text-align:left"><th style="padding:8px 10px 8px 0;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">SCREEN</th><th style="padding:8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">DARK / LIGHT</th><th style="padding:8px 0 8px 10px;border-bottom:1.5px solid rgba(0,0,0,.25);font:600 11px system-ui;letter-spacing:.8px;color:rgba(0,0,0,.55)">ENTERED FROM</th></tr></thead>
+    <tbody>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Today</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">4b / 2a</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Launch · tab bar · end of every flow</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Today · missed yesterday</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">1f</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Replaces Today when last night was missed</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Tonight's length sheet</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">5c</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Tap the Tonight row (6b)</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Alarm</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">in 1a · 12c for DE/JA</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Scheduled time, over the lock screen</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Camera gate → found</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">in 1a</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">"Show My Book"; manual fallback always available</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Post-scan · settling</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">4c (see 3e)</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Cover found. No countdown; offers last takeaway</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Session</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">4a · 2b · 12a</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Begin reading</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Overtime</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">3f</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">"Keep Reading" at goal</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Shield barrier</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">1g soft · 2c · 12b</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Opening a shielded app mid-session</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Complete → takeaway</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">in 1a · 2c</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Session end; recording is offered, never forced</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Step-up prompt</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">5b</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">After the takeaway step, <b>only</b> after a clean week</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Library</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">7a / 11a</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Tab bar</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Book details</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">7b / 11b</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Reading-now card; chevron back to Library</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Takeaways</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">7c / 11c</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Tab bar</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Progress · month</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">10a / 11d</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Tab bar</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Progress · year</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">10b / 11e</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">"Year" chip; chevron back to month</td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Settings → Reading</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">6a / 11f</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">Three dots in the Today header <b>→ needs the Settings root</b></td></tr>
+      <tr><td style="padding:8px 10px 8px 0;border-bottom:1px solid rgba(0,0,0,.1)">Onboarding, 7 steps</td><td style="padding:8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">8a, 8b, 8c, 5a, 8d, 8e, 8f / 11g–11i, 11m, 11j–11l</td><td style="padding:8px 0 8px 10px;border-bottom:1px solid rgba(0,0,0,.1)">First open. Order below is normative</td></tr>
+    </tbody>
+  </table>
+  <p style="margin:14px 0 0;font:400 13.5px/1.6 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.6);max-width:44em">Superseded, do not build: 9a/9b (week-only Progress), 1b–1e and 3a–3c (session motifs not chosen), 1e/3d (earlier Today layouts).</p>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">6 · Behaviour rules</h2>
+  <ul style="margin:12px 0 0;padding-left:20px;font:400 14.5px/1.7 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.78);max-width:44em">
+    <li><b>Session length is one app-wide setting</b>, not per-book. Asked once at first open (5 minutes preselected), lives in Settings → Reading forever after. The nightly sheet changes <b>tonight only</b>.</li>
+    <li><b>The default earns its way up.</b> After a clean week at the current length the step-up is offered once, immediately after a session, one increment only (5 → 10 → 15 → 20 → 30 → 45 → 60). Declining is a first-class choice and is never asked again that week.</li>
+    <li><b>A miss is stated once.</b> No red, no counter-reset animation, no catch-up prompt. In the week row and heatmap a missed night is a hairline outline; days that haven't happened yet are drawn as nothing.</li>
+    <li><b>Heatmap fill weight is session length, never a score.</b> Four steps. A short night still counts as a night.</li>
+    <li><b>Progress shows three facts</b> — streak, the current month, total time. No averages, no projections, no "best day", no percentages.</li>
+    <li><b>One primary action per screen.</b> Everything else is a quiet row or a text button. Emergency access on the shield is always present and never styled as a punishment.</li>
+    <li><b>Every button is a min-height box with centred wrapping text</b> (min 44px, 48–58px typical). Never a fixed single-line height — see localisation.</li>
+    <li><b>Recording a takeaway is optional every single time.</b> "Not now" carries no penalty and does not break the streak.</li>
+    <li><b>The word "reminder" never appears.</b> Nor does any shaming or streak-loss language.</li>
+  </ul>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">7 · Localisation</h2>
+  <p style="margin:12px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em">Reference screens: <b>12a–12d</b> — session, shield, alarm and paywall, each in German and Japanese, with <b>no layout changes</b> made to accommodate them. German was chosen for length (30–40% longer, compounds that cannot hyphenate), Japanese for line-breaking and type.</p>
+  <ul style="margin:12px 0 0;padding-left:20px;font:400 14.5px/1.7 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.78);max-width:44em">
+    <li><b>Buttons must wrap, not shrink.</b> German "10 Minuten später erinnern" fits at 15.5px only because the alarm's actions are full-width and stacked. Never place two buttons side by side on a decision screen.</li>
+    <li><b>Japanese type:</b> Newsreader has no CJK. Titles fall back to <b>Noto Serif JP</b>, UI to <b>Noto Sans JP</b>, at the same sizes and weights. Set <code>font-style: normal</code> on CJK — synthetic oblique is not italic.</li>
+    <li><b>CJK breaks are authored.</b> No spaces means auto-wrap breaks in the wrong place; titles and shield copy ship with manual break hints in the string.</li>
+    <li><b>Clocks:</b> 24-hour with "Uhr" in German; Japanese drops the meridiem. Session readouts and heatmap numerals stay latin numerals in every locale, in the same font.</li>
+    <li><b>Prices localise format</b> (<code>29,99 €</code> vs <code>€29.99</code>) but plan-card numerals never change font.</li>
+    <li><b>Where German cannot fit, shorten the string</b> — do not shrink the type or grow the screen. The paywall needed exactly this twice (<code>29,99 €/Jahr · 2,50 €/Monat</code>, <code>Danach 29,99 €/Jahr. Jederzeit kündbar.</code>): at that density German needs shorter copy, and the layout is correct as designed.</li>
+    <li><b>What 12a–12d do not prove:</b> that the copy is good. The German is translation-quality, not native, and the trial timeline is <b>regulated wording</b>. A native pass plus legal review is required per market before either locale ships — especially the trial, billing and cancellation strings.</li>
+  </ul>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">8 · Open items — must be verified before build</h2>
+  <ol style="margin:12px 0 0;padding-left:20px;font:400 14.5px/1.7 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.78);max-width:44em">
+    <li><b>Prices are placeholders.</b> Every number on 8f / 11l (<code>€29.99</code> yearly, <code>€5.99</code> monthly, <code>SAVE 58%</code>, <code>€2.50 a month</code>) is invented for layout. Replace with real store pricing per market, and re-derive the savings badge — it must be computed, never hard-coded. Confirm whether an intro offer or lifetime tier exists; neither is designed.</li>
+    <li><b>Onboarding order and length need product sign-off.</b> As designed: welcome → how it works → scan (skippable) → length → shielded apps → permissions → trial, with four numbered step dots covering scan/length/apps/permissions, and the paywall <b>last, after setup</b>. If a step is added, removed or reordered, the dots and their captions must be updated with it — they are drawn to match this exact sequence.</li>
+    <li><b>All on-screen labels and copy are design copy.</b> Titles, row labels, captions, empty-state sentences, permission explanations and legal footnotes should be reviewed and adjusted to final product and legal wording; several will change length and every block is built to flex, but re-check the four tightest screens (session, shield, alarm, paywall) after any edit.</li>
+    <li><b>Trial-expired / resubscribe is not designed.</b> Blocked on a policy decision: does a lapsed user get a hard wall (shield off, library read-only) or do sessions still run unshielded? With no free tier this screen decides whether lapsed users return.</li>
+    <li><b>Settings root is not designed.</b> Only the Reading sub-page (6a) exists; the three dots currently open it directly, and its back chevron has nowhere to go.</li>
+    <li><b>Permission-denial paths.</b> Each permission is requested separately so a refusal doesn't kill the flow, but the degraded states (no camera → manual start only; no notifications → no alarm) are described, not drawn.</li>
+    <li><b>Real assets.</b> Every cover is a typographic placeholder and every shielded app is a striped tile; both are drop-in replacements that change no layout.</li>
+    <li><b>Accessibility.</b> Dynamic Type, VoiceOver labels for the bookmark/heatmap graphics, and reduced-motion behaviour for the drifting ambient (freeze, don't remove) are unspecified.</li>
+  </ol>
+
+  <h2 style="margin:38px 0 0;font:500 24px/1.2 Newsreader,Georgia,serif;color:#1a1512">9 · The prototype</h2>
+  <p style="margin:12px 0 0;font:400 14.5px/1.65 -apple-system,system-ui,sans-serif;color:rgba(0,0,0,.75);max-width:44em">Screen <b>1a</b> in the review document is clickable and covers the whole app: tab bar, night flow, library push, onboarding sequence, step-up, year strip and Settings. Its rail jumps to any screen and speeds the session clock. Four switches are exposed: session length, missed-yesterday Today, already-read Today, and clean-week (which reveals the step-up after a session). Inert by design: Progress's month steppers and the individual Settings rows.</p>
+
+</doc-page>
+</x-dc>
+</body>
+</html>
