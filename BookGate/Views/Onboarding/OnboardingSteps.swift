@@ -9,25 +9,32 @@ struct WelcomeStep: View {
     @Environment(\.bgPalette) private var palette
     var body: some View {
         VStack(spacing: 0) {
-            Text("BOOKGATE")
-                .font(BGFont.ui(11, .semibold)).tracking(2.0)
-                .foregroundStyle(palette.ink(.secondary))
-                .padding(.top, 8)
             Spacer()
-            markOnPageEdge
-            Spacer().frame(height: 30)
-            Text("Make reading happen.")
-                .font(BGFont.serif(33, .medium)).foregroundStyle(palette.ink(.hero))
+            ZStack { markGlow; BookMark() }
+            Spacer().frame(height: 52)
+            Text("BOOKGATE")
+                .font(BGFont.ui(11, .semibold)).tracking(2.4)
+                .foregroundStyle(Color(hex: 0xE9B872))
+            Text("Make reading\nhappen.")
+                .font(BGFont.serif(38, .medium))
+                .lineSpacing(38 * 0.2)
+                .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 22)
             Text("An alarm for your book, and a camera that makes sure you actually start.")
-                .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
+                .font(BGFont.ui(15.5, .regular)).lineSpacing(15.5 * 0.25)
+                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
                 .multilineTextAlignment(.center)
-                .padding(.top, 10).padding(.horizontal, 8)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 16).padding(.horizontal, 4)
             Spacer()
             Button("Get Started") { next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 58))
             Button { restore() } label: {
                 HStack(spacing: 4) {
-                    Text("Already subscribed?").foregroundStyle(palette.ink(.secondary))
+                    Text("Already subscribed?").foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
                     Text("Restore").foregroundStyle(palette.brassValue)
                 }
                 .font(BGFont.ui(13.5, .medium))
@@ -35,23 +42,72 @@ struct WelcomeStep: View {
             .buttonStyle(.plain)
             .frame(minHeight: 44)
         }
-        .padding(.horizontal, 26).padding(.bottom, 40)
+        .padding(.horizontal, 28).padding(.bottom, 40)
     }
 
-    /// The mark is the motif — a brass bookmark laid on a page edge.
-    private var markOnPageEdge: some View {
-        ZStack(alignment: .top) {
-            // page edge behind the bookmark
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color(hex: 0xF7EFE4, opacity: palette.isDark ? 0.06 : 0.5))
-                .frame(width: 116, height: 150)
-                .overlay(alignment: .leading) {
-                    Rectangle().fill(palette.hairline).frame(width: 1).padding(.leading, 10)
-                }
-                .offset(x: 20, y: 10)
-            Bookmark(width: 42, height: 58)
-                .offset(x: -18)
+    /// The warm glow that sits directly behind the book (radial, blurred, breathing) — the "power".
+    private var markGlow: some View {
+        Circle()
+            .fill(RadialGradient(colors: [Color(hex: 0xF0BE78, opacity: 0.34), .clear],
+                                 center: .center, startRadius: 0, endRadius: 380 * 0.31))
+            .frame(width: 380, height: 380)
+            .blur(radius: 36)
+            .allowsHitTesting(false)
+    }
+}
+
+/// The welcome mark (design 8a): a cream book — the contrast object on the dark base — with the
+/// brass bookmark ribbon draped over it, a spine, page lines, and a lift shadow. It floats.
+struct BookMark: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var float = false
+
+    var body: some View {
+        ZStack {
+            // lift shadow ellipse
+            Ellipse().fill(Color.black.opacity(0.5)).frame(width: 104, height: 18).blur(radius: 10)
+                .offset(y: 66 + 14)
+            // book body
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(LinearGradient(colors: [Color(hex: 0xE9DCC6), Color(hex: 0xCDBC9F), Color(hex: 0xB8A687)],
+                                     startPoint: UnitPoint(x: 0.15, y: 0), endPoint: UnitPoint(x: 0.85, y: 1)))
+                .frame(width: 132, height: 132)
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.6), lineWidth: 1).blendMode(.plusLighter))
+                .shadow(color: .black.opacity(0.75), radius: 20, x: 0, y: 18)
+            // spine + page lines, positioned within the 132×132 book
+            ZStack(alignment: .topLeading) {
+                Color.clear.frame(width: 132, height: 132)
+                Rectangle().fill(Color(hex: 0x5A4228, opacity: 0.35)).frame(width: 2, height: 132).offset(x: 16)
+                pageLine(top: 34, leadingInset: 46, trailingInset: 22, opacity: 0.22)
+                pageLine(top: 48, leadingInset: 46, trailingInset: 30, opacity: 0.18)
+                pageLine(top: 62, leadingInset: 46, trailingInset: 40, opacity: 0.14)
+            }
+            .frame(width: 132, height: 132)
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            // brass ribbon draped over the top, right of centre, poking 8px above
+            BookmarkShape(notch: 0.76)
+                .fill(LinearGradient(stops: [
+                    .init(color: Color(hex: 0xF2CB95), location: 0),
+                    .init(color: Color(hex: 0xD79A56), location: 0.70),
+                    .init(color: Color(hex: 0xC0863F), location: 1.0),
+                ], startPoint: .top, endPoint: .bottom))
+                .frame(width: 26, height: 74)
+                .shadow(color: .black.opacity(0.5), radius: 9, x: 0, y: 8)
+                .offset(x: 132/2 - 28 - 13, y: -132/2 - 8 + 37)
         }
+        .frame(width: 132, height: 132)
+        .offset(y: reduceMotion ? 0 : (float ? -6 : 4))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 7).repeatForever(autoreverses: true), value: float)
+        .onAppear { float = true }
+    }
+
+    private func pageLine(top: CGFloat, leadingInset: CGFloat, trailingInset: CGFloat, opacity: Double) -> some View {
+        Rectangle()
+            .fill(Color(hex: 0x5A4228, opacity: opacity))
+            .frame(width: 132 - leadingInset - trailingInset, height: 3)
+            .cornerRadius(2)
+            .offset(x: leadingInset, y: top)
     }
 }
 
@@ -240,7 +296,8 @@ struct AppsStep: View {
         return VStack(spacing: 16) {
             Spacer().frame(height: 6)
             Text("Which apps usually win at 9pm?")
-                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero)).multilineTextAlignment(.center)
+                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero))
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Text("They'll be held back while you read. Nothing is deleted, nothing is reported.")
                 .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).multilineTextAlignment(.center)
 
@@ -296,7 +353,8 @@ struct PermissionsStep: View {
         VStack(spacing: 16) {
             Spacer().frame(height: 6)
             Text("Four permissions, four reasons.")
-                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero)).multilineTextAlignment(.center)
+                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero))
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 11) {
                 permRow("alarm.fill", "Alarms", "So 9pm actually reaches you, even on silent.", nil, alarmGranted) {
                     Task { alarmGranted = await services.scheduler.requestAuthorization() }

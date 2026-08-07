@@ -21,6 +21,7 @@ struct StepUpView: View {
                     .font(BGFont.serif(27, .medium))
                     .foregroundStyle(palette.ink(.hero))
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
 
                 HStack(alignment: .center, spacing: 18) {

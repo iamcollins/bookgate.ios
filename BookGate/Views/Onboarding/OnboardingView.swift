@@ -20,7 +20,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.14))
+            BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: false)
             VStack(spacing: 0) {
                 if let dotIndex {
                     PageDots(count: Self.dotted.count, index: dotIndex).padding(.top, 60)
