@@ -117,25 +117,15 @@ struct AlarmSetupStep: View {
 
     private func heroReadout(length len: Int) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            // The time. During the rise it advances in calm **whole-hour** steps (16→17→…→21) so it
-            // doesn't blur through every minute; once settled/scrubbing it shows the exact time.
-            // Left-aligned so it stays visible beside your thumb while you swipe.
-            MinuteText(minute: animMin) { m in
-                let shown = rising ? Int((Double(m) / 60).rounded()) * 60 : m
-                let parts = Schedule.hourMinute(shown)
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(parts.time)
-                        .font(BGFont.numeralHero)
-                        .foregroundStyle(palette.ink(.hero))
-                        .shadow(color: .black.opacity(0.55), radius: 4)
-                        .shadow(color: .black.opacity(0.4), radius: 10)
-                    if !parts.marker.isEmpty {
-                        Text(parts.marker)
-                            .font(BGFont.serif(23, .medium))
-                            .foregroundStyle(palette.ink(.secondary))
-                    }
+            // The time, left-aligned so it stays visible beside your thumb while you swipe.
+            if rising {
+                // During the load rise: calm whole-hour steps (16→17→…→21) via the Animatable minute.
+                MinuteText(minute: animMin) { m in
+                    timeCluster(Int((Double(m) / 60).rounded()) * 60, transition: false)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Scrubbing / settled: Apple's numeric content transition — the digits fade and slide.
+                timeCluster(Int(animMin.rounded()), transition: true)
             }
 
             // The reading length, set on the ring below, shown prominently under the time.
@@ -146,6 +136,26 @@ struct AlarmSetupStep: View {
                 .animation(.snappy(duration: 0.25), value: len)
         }
         .shadow(color: .black.opacity(0.4), radius: 14, y: 4)
+    }
+
+    /// The big time numeral + AM/PM marker for a given minute. `transition` turns on the numeric
+    /// content transition (fade/slide) — used while scrubbing, off during the per-frame rise.
+    private func timeCluster(_ m: Int, transition: Bool) -> some View {
+        let parts = Schedule.hourMinute(m)
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(parts.time)
+                .font(BGFont.numeralHero)
+                .foregroundStyle(palette.ink(.hero))
+                .shadow(color: .black.opacity(0.55), radius: 4)
+                .shadow(color: .black.opacity(0.4), radius: 10)
+                .contentTransition(transition ? .numericText(value: Double(m)) : .identity)
+            if !parts.marker.isEmpty {
+                Text(parts.marker)
+                    .font(BGFont.serif(23, .medium))
+                    .foregroundStyle(palette.ink(.secondary))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func lengthLabel(_ len: Int) -> String {
@@ -202,8 +212,9 @@ struct AlarmSetupStep: View {
             .onChanged { value in
                 if rising { return }        // let the load auto-rise finish before hand control over
                 if scrubStart == nil {
-                    // Reserve the top (dots + title) and the bottom control band.
-                    scrubIgnored = value.startLocation.y < 120 || value.startLocation.y > height - 240
+                    // Only reserve the bottom control band (ring / days / button). The whole sky above
+                    // it — including where the moon rides near the top — is draggable.
+                    scrubIgnored = value.startLocation.y > height - 240
                     scrubStart = scrubMinutes(s.readingMin)
                 }
                 guard !scrubIgnored, let start = scrubStart else { return }
