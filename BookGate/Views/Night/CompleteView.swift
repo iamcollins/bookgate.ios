@@ -17,6 +17,8 @@ struct CompleteView: View {
                 Bookmark(width: 38, height: 52)
                 Text("You read today.")
                     .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero))
+                Text("You showed up for your book.")
+                    .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
 
                 statsPanel
                 promptPanel
@@ -37,9 +39,9 @@ struct CompleteView: View {
 
     private var statsPanel: some View {
         HStack(spacing: 0) {
-            stat("\(session.completedMinutes)", "minutes")
+            stat("\(session.completedMinutes)", "minutes read")
             Hairline(axis: .vertical).frame(height: 40)
-            stat("\(session.completedStreak)", "night streak")
+            stat("\(session.completedStreak)", "day streak")
         }
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity)
@@ -56,9 +58,8 @@ struct CompleteView: View {
 
     private var promptPanel: some View {
         VStack(spacing: 6) {
-            Text("Before you close the book")
-                .font(BGFont.ui(13.5, .semibold)).foregroundStyle(palette.brassValue)
-            Text("Say one thing you'll remember. Thirty seconds, just for you.")
+            Text("While it's fresh").sectionLabel(color: palette.brassValue)
+            Text("A takeaway in your own voice is worth more than a page of notes you'll never reopen.")
                 .font(BGFont.aside(14))
                 .foregroundStyle(palette.ink(.body))
                 .multilineTextAlignment(.center)

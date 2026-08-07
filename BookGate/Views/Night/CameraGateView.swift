@@ -46,10 +46,12 @@ struct CameraGateView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("Show yourself with your book").sectionLabel()
-            Text("You and \(bookTitle)")
+            Text("Show your book")
                 .font(BGFont.serif(24, .medium))
                 .foregroundStyle(palette.ink(.hero))
+            Text(bookTitle)
+                .font(BGFont.aside(15))
+                .foregroundStyle(palette.ink(.body))
                 .multilineTextAlignment(.center)
         }
     }
@@ -104,7 +106,7 @@ struct CameraGateView: View {
     }
 
     private var manualFallback: some View {
-        Button("I'm holding my book") { detector.requestManualCapture() }
+        Button("Start without the camera") { detector.requestManualCapture() }
             .buttonStyle(GlassButtonStyle(minHeight: 50))
     }
 

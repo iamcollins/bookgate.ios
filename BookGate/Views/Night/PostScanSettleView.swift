@@ -9,7 +9,8 @@ struct PostScanSettleView: View {
 
     private var session: SessionCoordinator { services.session }
     private var book: Book? { services.books.currentReading }
-    private var hasLastTakeaway: Bool { false }   // wired to the takeaway archive in task #8
+    private var lastTakeaway: Takeaway? { services.takeaways.latest }
+    private var length: Int { services.settings.effectiveTonightLength }
 
     var body: some View {
         ZStack {
@@ -21,18 +22,18 @@ struct PostScanSettleView: View {
                                   width: 120, height: 178)
                 }
                 VStack(spacing: 6) {
-                    Text("Shield up").sectionLabel()
-                    Text("Settle in.")
+                    Text("\(book?.title ?? "Your book") · Shield on").sectionLabel()
+                    Text("Ready when you are.")
                         .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero))
-                    Text("Your reading time is yours now.")
+                    Text("\(length) minutes, starting the moment you tap.")
                         .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
                 }
                 Spacer()
                 VStack(spacing: 12) {
-                    Button("Read Now") { begin() }
+                    Button("Start Reading") { begin() }
                         .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-                    if hasLastTakeaway {
-                        Button("Hear last time's takeaway first") { begin() }
+                    if lastTakeaway != nil {
+                        Button("Hear last time first") { begin() }
                             .buttonStyle(TextButtonStyle(ink: .secondary))
                     }
                 }

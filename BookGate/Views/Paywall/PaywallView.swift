@@ -27,8 +27,11 @@ struct PaywallView: View {
                 VStack(spacing: 22) {
                     Spacer().frame(height: 20)
                     Bookmark(width: 38, height: 52)
-                    Text("Read before you scroll.")
+                    Text("Make reading a daily reality.")
                         .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero))
+                        .multilineTextAlignment(.center)
+                    Text("Your book, your time, your shield — three days on us.")
+                        .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
                         .multilineTextAlignment(.center)
 
                     timeline
@@ -55,9 +58,9 @@ struct PaywallView: View {
 
     private var timeline: some View {
         VStack(alignment: .leading, spacing: 14) {
-            timelineRow("lock.open", "Today", "Full access unlocks — set your alarm and start reading.")
-            timelineRow("bell", "Day 2", "A reminder that your trial ends tomorrow.")
-            timelineRow("creditcard", "Day 3", "Your subscription begins, unless you cancel.")
+            timelineRow("lock.open", "Today — everything opens", "Full app. First session tonight at 9:00 PM.")
+            timelineRow("bell", "Day 2 — we email you", "A day before anything is charged, in writing.")
+            timelineRow("creditcard", "Day 3 — your plan begins", "Cancel any time before then and pay nothing.")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,7 +137,7 @@ struct PaywallView: View {
     }
 
     private var ctaLabel: String {
-        (selectedPlan?.trial != nil) ? String(localized: "Start 3 days free") : String(localized: "Subscribe")
+        (selectedPlan?.trial != nil) ? String(localized: "Start my 3 free days") : String(localized: "Subscribe")
     }
 
     private var footer: some View {
@@ -153,9 +156,9 @@ struct PaywallView: View {
     private var renewalNote: String {
         guard let plan = selectedPlan else { return "" }
         if plan.trial != nil {
-            return String(localized: "Free for 3 days, then \(plan.price)/\(plan.period). Cancel anytime.")
+            return String(localized: "Then \(plan.price) a \(plan.period). Cancel in Settings any time.")
         }
-        return String(localized: "\(plan.price)/\(plan.period). Cancel anytime.")
+        return String(localized: "\(plan.price) a \(plan.period). Cancel in Settings any time.")
     }
 
     // MARK: Actions

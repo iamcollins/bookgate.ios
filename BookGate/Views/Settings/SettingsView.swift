@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Settings → Reading (screen 6a). Default length, alarm time, active nights (rest day), shielded
-/// apps, appearance, and the two rules stated plainly. The Settings *root* is a flagged open item;
-/// the Today header dots open this sub-page directly, so it dismisses back to Today.
+/// Settings → Reading (screen 6a). Grouped exactly as the design: EVERY NIGHT (minimum length,
+/// alarm time, days), HOW IT ADAPTS (the two rules stated plainly), DURING A SESSION (shielded apps,
+/// emergency access). Appearance is added below (the README's manual theme override). The Settings
+/// *root* is a flagged open item; the Today header dots open this sub-page directly.
 struct SettingsView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
@@ -17,12 +18,10 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("Reading").font(BGFont.screenTitle).foregroundStyle(palette.ink(.hero))
-
-                    lengthCard(settings: settings)
-                    if let schedule { alarmCard(schedule) }
-                    appsCard
+                    everyNightCard(settings: settings)
+                    howItAdaptsCard
+                    duringSessionCard
                     appearanceCard(settings: settings)
-                    rulesCard
                     footer
                 }
                 .padding(.horizontal, 20).padding(.vertical, 20)
@@ -40,36 +39,38 @@ struct SettingsView: View {
     private func card<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 11) {
             Text(label).sectionLabel()
-            content()
+            VStack(spacing: 12) { content() }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16).glass(.card, cornerRadius: 20)
     }
 
-    private func lengthCard(settings: ReadingSettings) -> some View {
-        card("Default length") {
-            Picker("Default length", selection: Binding(
-                get: { settings.defaultLength },
-                set: { settings.defaultLength = $0 })) {
-                ForEach(ReadingSettings.lengthOptions, id: \.self) { v in
-                    Text(v == 60 ? "1 hour" : "\(v) min").tag(v)
+    // MARK: EVERY NIGHT
+
+    private func everyNightCard(settings: ReadingSettings) -> some View {
+        card("Every night") {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Minimum length").font(BGFont.row).foregroundStyle(palette.ink(.strong))
+                    Text("The same for every book").font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                }
+                Spacer()
+                Picker("", selection: Binding(get: { settings.defaultLength }, set: { settings.defaultLength = $0 })) {
+                    ForEach(ReadingSettings.lengthOptions, id: \.self) { Text($0 == 60 ? "1 hour" : "\($0) min").tag($0) }
+                }.pickerStyle(.menu).tint(palette.brassValue)
+            }
+            if let schedule {
+                Divider().overlay(palette.hairline)
+                DatePicker(selection: alarmBinding(schedule), displayedComponents: .hourAndMinute) {
+                    Text("Alarm time").font(BGFont.row).foregroundStyle(palette.ink(.strong))
+                }.tint(palette.brassValue)
+                Divider().overlay(palette.hairline)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Days").font(BGFont.row).foregroundStyle(palette.ink(.strong))
+                    HStack(spacing: 6) { ForEach(0..<7, id: \.self) { dayToggle(schedule, $0) } }
+                    Text("Uncheck a night for a rest day.").font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
                 }
             }
-            .pickerStyle(.menu).tint(palette.brassValue)
-        }
-    }
-
-    private func alarmCard(_ schedule: Schedule) -> some View {
-        card("Alarm") {
-            DatePicker("Time", selection: alarmBinding(schedule), displayedComponents: .hourAndMinute)
-                .tint(palette.brassValue)
-                .foregroundStyle(palette.ink(.strong))
-            Divider().overlay(palette.hairline)
-            HStack(spacing: 6) {
-                ForEach(0..<7, id: \.self) { i in dayToggle(schedule, i) }
-            }
-            Text("Uncheck a night for a rest day.")
-                .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
         }
     }
 
@@ -89,31 +90,41 @@ struct SettingsView: View {
         }.buttonStyle(.plain)
     }
 
-    private var appsCard: some View {
-        card("Shielded apps") { ShieldAppsRow(shield: services.shield) }
-    }
+    // MARK: HOW IT ADAPTS
 
-    private func appearanceCard(settings: ReadingSettings) -> some View {
-        card("Appearance") {
-            Picker("Theme", selection: Binding(get: { settings.theme }, set: { settings.theme = $0 })) {
-                ForEach(ThemePreference.allCases) { Text($0.label).tag($0) }
-            }
-            .pickerStyle(.segmented)
-        }
-    }
-
-    private var rulesCard: some View {
-        card("How BookGate works") {
-            ruleRow("The default earns its way up", "After a clean week, we offer one increment — once. You can always keep what's working.")
+    private var howItAdaptsCard: some View {
+        card("How it adapts") {
+            ruleRow("Offer the next step up", "After a full week at your minimum. One step, and only as an offer.")
             Divider().overlay(palette.hairline)
-            ruleRow("A miss is stated once", "No red, no reset, no catch-up. A missed night is just an outline.")
+            ruleRow("One rest day a week", "A missed night keeps your streak, once every seven days.")
         }
     }
 
     private func ruleRow(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(BGFont.ui(14.5, .semibold)).foregroundStyle(palette.ink(.strong))
+            Text(title).font(BGFont.row).foregroundStyle(palette.ink(.strong))
             Text(body).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: DURING A SESSION
+
+    private var duringSessionCard: some View {
+        card("During a session") {
+            ShieldAppsRow(shield: services.shield)
+            Divider().overlay(palette.hairline)
+            ruleRow("Emergency access", "Ten-second wait, then anything opens.")
+        }
+    }
+
+    // MARK: Appearance (README manual theme override; not in the design's 6a)
+
+    private func appearanceCard(settings: ReadingSettings) -> some View {
+        card("Appearance") {
+            Picker("Theme", selection: Binding(get: { settings.theme }, set: { settings.theme = $0 })) {
+                ForEach(ThemePreference.allCases) { Text($0.label).tag($0) }
+            }.pickerStyle(.segmented)
         }
     }
 

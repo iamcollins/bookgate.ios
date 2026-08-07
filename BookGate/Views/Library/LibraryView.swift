@@ -162,9 +162,8 @@ struct LibraryView: View {
                                           width: 40, height: 60)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(book.title).font(BGFont.row).foregroundStyle(palette.ink(.strong)).lineLimit(1)
-                                if !book.author.isEmpty {
-                                    Text(book.author).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-                                }
+                                Text("Paused · \(services.takeaways.count(forBook: book.idString)) takeaways")
+                                    .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
                             }
                             Spacer()
                             Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold))

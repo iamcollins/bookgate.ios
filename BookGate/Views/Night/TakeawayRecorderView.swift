@@ -41,7 +41,7 @@ struct TakeawayRecorderView: View {
 
     private var prompt: String {
         switch stage {
-        case .idle:      return "Say one thing you'll remember."
+        case .idle:      return "What's one thing you want to remember?"
         case .recording: return "Listening…"
         case .review:    return "Keep this one?"
         }
@@ -54,8 +54,14 @@ struct TakeawayRecorderView: View {
                 Text("Enable the microphone in Settings to record, or skip.")
                     .font(BGFont.body).foregroundStyle(palette.ink(.secondary)).multilineTextAlignment(.center)
             } else {
-                Text("About thirty seconds, just for you.")
-                    .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body))
+                VStack(spacing: 8) {
+                    Text("Say it the way you'd say it to a friend.")
+                        .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body))
+                    if let book = services.books.currentReading {
+                        Text("Saving under \(book.title)")
+                            .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    }
+                }
             }
         case .recording:
             VStack(spacing: 14) {
@@ -92,7 +98,7 @@ struct TakeawayRecorderView: View {
             VStack(spacing: 12) {
                 Button(player.isPlaying ? "Pause" : "Play") { togglePlay() }
                     .buttonStyle(GlassButtonStyle(minHeight: 52))
-                Button("Save takeaway") { save() }
+                Button("Save Takeaway") { save() }
                     .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
                 Button("Re-record") { reRecord() }
                     .buttonStyle(TextButtonStyle(ink: .secondary))

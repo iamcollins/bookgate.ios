@@ -16,15 +16,15 @@ struct TonightLengthSheet: View {
         ZStack {
             BGAmbientBackground(showGlow: false)
             VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Tonight").sectionLabel()
-                    Text("How long tonight?")
-                        .font(BGFont.serif(27, .medium))
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Tonight's reading")
+                        .font(BGFont.serif(24, .medium))
                         .foregroundStyle(palette.ink(.hero))
-                    Text("Just for tonight. Your usual length stays the same.")
-                        .font(BGFont.body)
-                        .foregroundStyle(palette.ink(.secondary))
+                    Spacer()
+                    Button("Done") { dismiss() }
+                        .font(BGFont.ui(15, .semibold)).foregroundStyle(palette.brassValue)
                 }
+                Text("How long").sectionLabel()
 
                 LazyVGrid(columns: columns, spacing: 10) {
                     ForEach(ReadingSettings.lengthOptions, id: \.self) { value in

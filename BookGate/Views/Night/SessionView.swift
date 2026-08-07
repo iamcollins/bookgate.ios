@@ -77,7 +77,7 @@ struct SessionView: View {
                 .font(BGFont.ui(12, .medium)).tracking(1.4)
                 .foregroundStyle(palette.ink(.secondary))
             Rectangle().fill(palette.ink(.caption)).frame(width: 34, height: 1)
-            Text("The light goes out when you're done.")
+            Text(session.inOvertime ? "Stop whenever the chapter lets you." : "The light goes out when you're done.")
                 .font(BGFont.aside(15))
                 .foregroundStyle(palette.ink(.body))
                 .multilineTextAlignment(.center)
@@ -87,10 +87,13 @@ struct SessionView: View {
     private var lowerThird: some View {
         VStack(spacing: 6) {
             if session.inOvertime {
+                Text("Goal met · Reading on").sectionLabel(color: Color(hex: 0xF2D6AB, opacity: 0.75))
                 Text("+\(timeString(session.overtimeSecs))")
                     .font(BGFont.serif(30, .regular)).monospacedDigit()
                     .foregroundStyle(Color(hex: 0xF2D6AB, opacity: 0.85))
-                Text("Overtime").sectionLabel(color: palette.ink(.caption))
+                Text("Past your \(session.sessionLengthMinutes) minutes")
+                    .font(BGFont.ui(10.5, .medium)).tracking(1.2).textCase(.uppercase)
+                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.44))
             } else {
                 Text(timeString(session.secondsLeft))
                     .font(BGFont.serif(30, .regular)).monospacedDigit()
@@ -112,8 +115,12 @@ struct SessionView: View {
                     .buttonStyle(TextButtonStyle(ink: .body))
             }
         } else if session.inOvertime {
-            Button("Finish Session") { session.finishSession() }
-                .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+            VStack(spacing: 8) {
+                Button("Finish Session") { session.finishSession() }
+                    .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+                Text("Shield stays on until you finish")
+                    .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+            }
         } else {
             VStack(spacing: 10) {
                 Button("Finish Session") { session.finishSession() }

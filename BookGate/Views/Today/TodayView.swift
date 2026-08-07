@@ -10,6 +10,7 @@ struct TodayView: View {
 
     @State private var showLengthSheet = false
     @State private var showSettings = false
+    @State private var player = AudioPlayer()
 
     private var book: Book? { services.books.currentReading }
     private var streak: Int { services.progress.liveStreak }
@@ -133,8 +134,12 @@ struct TodayView: View {
                     .buttonStyle(GlassButtonStyle(minHeight: 56))
                     .disabled(true)
             } else {
-                Button("Begin Reading Now") { beginReading() }
-                    .buttonStyle(PrimaryActionButtonStyle())
+                VStack(spacing: 8) {
+                    Button("Start Reading") { beginReading() }
+                        .buttonStyle(PrimaryActionButtonStyle())
+                    Text(reassurance)
+                        .font(BGFont.aside(13.5)).foregroundStyle(palette.ink(.secondary))
+                }
             }
 
             lastTakeawayRow
@@ -176,9 +181,38 @@ struct TodayView: View {
         return String(localized: "\(n) apps shielded · tap to change")
     }
 
+    private var reassurance: String {
+        let n = services.settings.effectiveTonightLength
+        return n == 5 ? String(localized: "Five minutes is enough to begin.")
+                      : String(localized: "\(n) minutes is enough to begin.")
+    }
+
+    /// The compact "last takeaway" player row (design 4b): play circle, one-line italic quote,
+    /// timecodes. Plays inline. Hidden when there are no takeaways.
     @ViewBuilder private var lastTakeawayRow: some View {
-        // Real inline playback arrives with the takeaway archive (task #8).
-        EmptyView()
+        if let t = services.takeaways.latest {
+            let active = player.currentID == t.id
+            Button { player.toggle(t, url: services.takeaways.audioURL(for: t)) } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(palette.glassProminent).frame(width: 38, height: 38)
+                        Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
+                            .font(.system(size: 13, weight: .bold)).foregroundStyle(palette.brassValue)
+                    }
+                    Text(t.transcript ?? "“…”")
+                        .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).lineLimit(1)
+                    Spacer()
+                    Text("\(timeStr(active ? player.currentTime : 0)) / \(timeStr(t.durationSec))")
+                        .font(BGFont.mono(11)).foregroundStyle(palette.ink(.secondary))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func timeStr(_ t: TimeInterval) -> String {
+        let s = Int(t.rounded()); return String(format: "%d:%02d", s / 60, s % 60)
     }
 
     // MARK: Actions

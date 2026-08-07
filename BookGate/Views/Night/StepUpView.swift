@@ -10,13 +10,18 @@ struct StepUpView: View {
     private var session: SessionCoordinator { services.session }
     private var now: Int { services.settings.defaultLength }
     private var suggested: Int { services.settings.nextLengthUp ?? now }
+    private var bookTitle: String { services.books.currentReading?.title ?? "your book" }
 
     var body: some View {
         ZStack {
             BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.3))
             VStack(spacing: 24) {
                 Spacer()
-                Text("A clean week").sectionLabel()
+                Text("Seven days at \(now) minutes. You haven't missed once. Want to make it \(suggested)?")
+                    .font(BGFont.serif(27, .medium))
+                    .foregroundStyle(palette.ink(.hero))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
 
                 HStack(alignment: .center, spacing: 18) {
                     compare("\(now)", "now")
@@ -26,7 +31,7 @@ struct StepUpView: View {
                     compare("\(suggested)", "suggested")
                 }
 
-                Text("You've made \(now) minutes a habit. Ready to give it a little more?")
+                Text("\(suggested) minutes is still less than one chapter of \(bookTitle).")
                     .font(BGFont.aside(15))
                     .foregroundStyle(palette.ink(.body))
                     .multilineTextAlignment(.center)
