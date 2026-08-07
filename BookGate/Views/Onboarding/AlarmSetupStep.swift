@@ -53,7 +53,7 @@ struct AlarmSetupStep: View {
         GeometryReader { geo in
             ZStack {
                 ReadingSkyStage(minute: animMin)
-                VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     titleBlock
                     Spacer(minLength: 0)
                     heroReadout(length: services.settings.defaultLength)
@@ -94,32 +94,32 @@ struct AlarmSetupStep: View {
     // MARK: Pieces
 
     private var titleBlock: some View {
-        VStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("When do you read?")
                 .font(BGFont.serifDynamic(30, .medium, relativeTo: .title))
                 .foregroundStyle(palette.ink(.hero))
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
             // The evocative line that changes with the hour — interpolated (Animatable) so it tracks
             // the rolling time during the rise.
             MinuteText(minute: animMin) { m in
                 Text(Self.contextLine(m))
                     .font(BGFont.serifItalicDynamic(16, .regular, relativeTo: .callout))
                     .foregroundStyle(palette.brassValue)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
                     .shadow(color: .black.opacity(0.6), radius: 4)
                     .shadow(color: .black.opacity(0.4), radius: 9)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 24)
         .shadow(color: .black.opacity(0.3), radius: 10, y: 3)
     }
 
     private func heroReadout(length len: Int) -> some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 12) {
             // The time. During the rise it advances in calm **whole-hour** steps (16→17→…→21) so it
-            // doesn't blur through every minute; once settled/scrubbing it shows the exact time. A
-            // fixed-width frame keeps the variable-width serif digits from jittering.
+            // doesn't blur through every minute; once settled/scrubbing it shows the exact time.
+            // Left-aligned so it stays visible beside your thumb while you swipe.
             MinuteText(minute: animMin) { m in
                 let shown = rising ? Int((Double(m) / 60).rounded()) * 60 : m
                 let parts = Schedule.hourMinute(shown)
@@ -135,7 +135,7 @@ struct AlarmSetupStep: View {
                             .foregroundStyle(palette.ink(.secondary))
                     }
                 }
-                .frame(width: 320)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             // The reading length, set on the ring below, shown prominently under the time.
