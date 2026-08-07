@@ -55,9 +55,9 @@ struct AlarmSetupStep: View {
                 ReadingSkyStage(minute: animMin)
                 VStack(alignment: .leading, spacing: 0) {
                     titleBlock
-                    Spacer(minLength: 0)
+                    Spacer().frame(height: 26)          // heading and time read as one hero group
                     heroReadout(length: services.settings.defaultLength)
-                    Spacer(minLength: 0).frame(maxHeight: 96)
+                    Spacer(minLength: 0)                // the open sky (and scrub room) sits below
                     controlBar(s)
                 }
                 .padding(.horizontal, 26)
@@ -116,7 +116,7 @@ struct AlarmSetupStep: View {
     }
 
     private func heroReadout(length len: Int) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 2) {
             // The time. During the rise it advances in calm **whole-hour** steps (16→17→…→21) so it
             // doesn't blur through every minute; once settled/scrubbing it shows the exact time.
             // Left-aligned so it stays visible beside your thumb while you swipe.
@@ -140,7 +140,7 @@ struct AlarmSetupStep: View {
 
             // The reading length, set on the ring below, shown prominently under the time.
             Text(lengthLabel(len))
-                .font(BGFont.serifDynamic(18, .medium, relativeTo: .title3))
+                .font(BGFont.serifDynamic(21, .medium, relativeTo: .title3))
                 .foregroundStyle(palette.brassValue)
                 .contentTransition(.numericText(value: Double(len)))
                 .animation(.snappy(duration: 0.25), value: len)
@@ -167,21 +167,30 @@ struct AlarmSetupStep: View {
     }
 
     private func dayPills(_ s: Schedule) -> some View {
-        HStack(spacing: 6) {
+        // Container-less typographic row (à la Thrise): the letter with a warm brass underline when
+        // active, a faint track when not — no boxes.
+        HStack(spacing: 2) {
             ForEach(0..<7, id: \.self) { i in
                 let on = s.days[i]
-                Button {
-                    var d = s.days; d[i].toggle(); s.days = d
-                } label: {
+                VStack(spacing: 7) {
                     Text(Schedule.dayLetters[i])
-                        .font(BGFont.ui(13, .semibold))
-                        .foregroundStyle(on ? palette.actionText : palette.ink(.strong))
-                        .frame(maxWidth: .infinity).frame(height: 38)
-                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(on ? AnyShapeStyle(palette.brassObject) : AnyShapeStyle(palette.glassQuiet))
-                            .overlay(RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(on ? Color.clear : palette.hairline, lineWidth: 1)))
-                }.buttonStyle(.plain)
+                        .font(BGFont.ui(15, on ? .bold : .medium))
+                        .tracking(0.5)
+                        .foregroundStyle(on ? palette.ink(.hero) : palette.ink(.disabled))
+                        .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
+                    Capsule()
+                        .fill(on ? AnyShapeStyle(palette.brassObject) : AnyShapeStyle(palette.hairline))
+                        .frame(width: on ? 16 : 10, height: 2.5)
+                        .shadow(color: palette.brassValue.opacity(on ? 0.5 : 0), radius: 4, y: 1)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 42)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.7)) {
+                        var d = s.days; d[i].toggle(); s.days = d
+                    }
+                }
             }
         }
     }
