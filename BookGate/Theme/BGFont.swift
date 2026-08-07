@@ -17,6 +17,17 @@ enum BGFont {
         .custom(serifFamily, fixedSize: size).weight(weight).italic()
     }
 
+    /// Dynamic-Type-scaled serif: the size is the base at the default text size and grows/shrinks
+    /// with the user's setting, anchored to `style`. Apple-recommended for adaptive, device-clean type.
+    static func serifDynamic(_ size: CGFloat, _ weight: Font.Weight = .regular,
+                             relativeTo style: Font.TextStyle = .body) -> Font {
+        .custom(serifFamily, size: size, relativeTo: style).weight(weight)
+    }
+    static func serifItalicDynamic(_ size: CGFloat, _ weight: Font.Weight = .regular,
+                                   relativeTo style: Font.TextStyle = .body) -> Font {
+        .custom(serifFamily, size: size, relativeTo: style).weight(weight).italic()
+    }
+
     // MARK: UI (SF Pro / system)
 
     static func ui(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {

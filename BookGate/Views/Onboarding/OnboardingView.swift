@@ -12,7 +12,13 @@ struct OnboardingView: View {
     @Environment(\.bgPalette) private var palette
 
     enum Step: Int, CaseIterable { case welcome, how, addBook, length, apps, permissions, paywall }
-    @State private var step: Step = .welcome
+    @State private var step: Step = {
+        #if DEBUG
+        if let v = ProcessInfo.processInfo.environment["BOOKGATE_ONB_STEP"], let i = Int(v),
+           let s = Step(rawValue: i) { return s }
+        #endif
+        return .welcome
+    }()
 
     /// The four steps that carry dots.
     private static let dotted: [Step] = [.addBook, .length, .apps, .permissions]
@@ -20,7 +26,8 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: false)
+            // Welcome carries its own single glow behind the book; other steps use the drift blobs.
+            BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: step != .welcome)
             VStack(spacing: 0) {
                 if let dotIndex {
                     PageDots(count: Self.dotted.count, index: dotIndex).padding(.top, 60)

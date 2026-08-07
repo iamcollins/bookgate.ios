@@ -13,18 +13,17 @@ struct WelcomeStep: View {
             BookMark().background { markGlow }
             Spacer().frame(height: 44)
             Text("BOOKGATE")
-                .font(BGFont.ui(11, .semibold)).tracking(2.4)
+                .font(.caption2).fontWeight(.semibold).tracking(2.4)
                 .foregroundStyle(Color(hex: 0xE9B872))
             Text("Make reading\nhappen.")
-                .font(BGFont.serif(38, .medium))
-                .lineSpacing(38 * 0.2)
+                .font(BGFont.serifDynamic(36, .medium, relativeTo: .largeTitle))
                 .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 22)
             Text("An alarm for your book, and a camera that makes sure you actually start.")
-                .font(BGFont.serifItalic(17, .regular)).lineSpacing(17 * 0.25)
+                .font(BGFont.serifItalicDynamic(16.5, .regular, relativeTo: .callout))
                 .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
@@ -37,7 +36,7 @@ struct WelcomeStep: View {
                     Text("Already subscribed?").foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
                     Text("Restore").foregroundStyle(palette.brassValue)
                 }
-                .font(BGFont.ui(13.5, .medium))
+                .font(.footnote).fontWeight(.medium)
             }
             .buttonStyle(.plain)
             .frame(minHeight: 44)
@@ -116,36 +115,65 @@ struct BookMark: View {
 struct HowItWorksStep: View {
     var next: () -> Void
     @Environment(\.bgPalette) private var palette
-    private let cards = [
-        ("01", "Set your reading time", "One time, one length. It rings like an alarm, not a banner you swipe away."),
-        ("02", "Show your book", "Hold the cover to the camera. That's what starts the session."),
-        ("03", "Read without the noise", "The apps that usually win are held back until you finish."),
-        ("04", "Say what mattered", "Thirty seconds in your own voice, kept under the book forever."),
+    private let cards: [(num: String, symbol: String, title: String, body: String)] = [
+        ("01", "clock", "Set your reading time", "One time, one length. It rings like an alarm, not a banner you swipe away."),
+        ("02", "camera", "Show your book", "Hold the cover to the camera. That's what starts the session."),
+        ("03", "nosign", "Read without the noise", "The apps that usually win are held back until you finish."),
+        ("04", "waveform", "Say what mattered", "Thirty seconds in your own voice, kept under the book forever."),
     ]
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer().frame(height: 6)
-            Text("Four steps, every night.")
-                .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero))
-                .multilineTextAlignment(.center)
-            VStack(spacing: 11) {
-                ForEach(cards, id: \.0) { card in
-                    HStack(alignment: .top, spacing: 14) {
-                        Text(card.0).font(BGFont.serif(20, .medium)).foregroundStyle(palette.brassValue)
-                            .frame(width: 28, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(card.1).font(BGFont.ui(15.5, .semibold)).foregroundStyle(palette.ink(.hero))
-                            Text(card.2).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-                        }
-                        Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Spacer().frame(height: 8)
+                    Text("Four steps,\nevery night.")
+                        .font(BGFont.serifDynamic(32, .medium, relativeTo: .largeTitle))
+                        .foregroundStyle(palette.ink(.hero))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(spacing: 12) {
+                        ForEach(cards, id: \.num) { card in row(card) }
                     }
-                    .padding(14).frame(maxWidth: .infinity).glass(.card, cornerRadius: 18)
+                    .padding(.top, 24)
                 }
             }
-            Spacer()
+            .frame(maxHeight: .infinity)
             Button("Set it up") { next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+                .padding(.top, 12)
         }
         .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 40)
+    }
+
+    private func row(_ card: (num: String, symbol: String, title: String, body: String)) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            iconTile(card.symbol)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(card.num).font(.caption2).fontWeight(.semibold).foregroundStyle(palette.brassValue)
+                    Text(card.title).font(.callout).fontWeight(.semibold).foregroundStyle(palette.ink(.hero))
+                }
+                Text(card.body).font(.footnote)
+                    .foregroundStyle(palette.ink(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 15).padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .glass(.card, cornerRadius: 22)
+    }
+
+    /// 44×44 brass-tinted rounded-square icon tile.
+    private func iconTile(_ symbol: String) -> some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(hex: 0xE9B872, opacity: 0.16))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Color(hex: 0xE9B872, opacity: 0.3), lineWidth: 1))
+            .frame(width: 44, height: 44)
+            .overlay {
+                Image(systemName: symbol).font(.system(size: 19, weight: .regular))
+                    .foregroundStyle(Color(hex: 0xE9B872))
+            }
     }
 }
 
