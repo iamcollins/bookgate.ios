@@ -14,7 +14,7 @@ struct ReadingSkyStage: View {
     private let glowY: CGFloat = 0.64
     /// The moon's travel. It rides the upper sky *above* the centred time numeral (which owns the
     /// middle): low & nearly faded-out at 16:00, rising to the top by midnight.
-    private let moonLowY: CGFloat = 0.42
+    private let moonLowY: CGFloat = 0.35
     private let moonHighY: CGFloat = 0.14
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -141,10 +141,19 @@ enum ReadingSky {
     static let windowStart = 960.0    // 16:00
     static let windowEnd   = 1440.0   // 00:00 (next day)
 
+    static let duskStart = 1140.0   // 19:00 — where the sky starts to darken
+
     static func nightness(_ readingMin: Int) -> Double {
         let scrub = readingMin == 0 ? windowEnd : min(max(Double(readingMin), windowStart), windowEnd)
-        let t = (scrub - windowStart) / (windowEnd - windowStart)   // 0 at 16:00 … 1 at 00:00
-        return t * t * (3 - 2 * t)                                  // smoothstep for a punchier dusk
+        if scrub <= duskStart {
+            // 16:00 → 19:00: bright golden, only a faint dimming as dusk approaches.
+            let p = (scrub - windowStart) / (duskStart - windowStart)
+            return 0.12 * p
+        } else {
+            // 19:00 → 00:00: darken steadily to the darkest at midnight.
+            let p = (scrub - duskStart) / (windowEnd - duskStart)
+            return 0.12 + 0.88 * p
+        }
     }
 
     static func top(_ n: Double) -> Color { color(n) { $0.top } }
