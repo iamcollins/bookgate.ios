@@ -9,9 +9,9 @@ struct WelcomeStep: View {
     @Environment(\.bgPalette) private var palette
     var body: some View {
         VStack(spacing: 0) {
-            Spacer()
-            ZStack { markGlow; BookMark() }
-            Spacer().frame(height: 52)
+            Spacer().frame(height: 88)
+            BookMark().background { markGlow }
+            Spacer().frame(height: 44)
             Text("BOOKGATE")
                 .font(BGFont.ui(11, .semibold)).tracking(2.4)
                 .foregroundStyle(Color(hex: 0xE9B872))
@@ -24,7 +24,7 @@ struct WelcomeStep: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 22)
             Text("An alarm for your book, and a camera that makes sure you actually start.")
-                .font(BGFont.ui(15.5, .regular)).lineSpacing(15.5 * 0.25)
+                .font(BGFont.serifItalic(17, .regular)).lineSpacing(17 * 0.25)
                 .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
                 .multilineTextAlignment(.center)
                 .lineLimit(nil)
