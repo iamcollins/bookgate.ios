@@ -19,7 +19,11 @@ struct AlarmSetupStep: View {
     // dead-zone so a drag near the dots or the control bar doesn't scrub.
     @State private var scrubStart: Int?
     @State private var scrubIgnored = false
-    private static let pxPerMinute: CGFloat = 2.2
+    /// Swipe sensitivity: fewer points per minute = the moon/time move faster under the finger.
+    private static let pxPerMinute: CGFloat = 1.05
+    /// The allowed window: 16:00 → 00:00 (midnight stored as readingMin 0).
+    private static let windowStart = 960     // 16:00
+    private static let windowEnd = 1440      // 00:00 next day
 
     var body: some View {
         Group {
@@ -39,10 +43,10 @@ struct AlarmSetupStep: View {
             ZStack {
                 ReadingSkyStage(readingMin: s.readingMin)
                 VStack(spacing: 0) {
-                    titleBlock
+                    titleBlock(s)
                     Spacer(minLength: 0)
                     heroReadout(s)
-                    Spacer(minLength: 0).frame(maxHeight: 104)
+                    Spacer(minLength: 0).frame(maxHeight: 96)
                     controlBar(s)
                 }
                 .padding(.horizontal, 26)
@@ -57,16 +61,22 @@ struct AlarmSetupStep: View {
 
     // MARK: Pieces
 
-    private var titleBlock: some View {
-        VStack(spacing: 10) {
+    private func titleBlock(_ s: Schedule) -> some View {
+        let line = contextLine(s.readingMin)
+        return VStack(spacing: 10) {
             Text("When do you read?")
                 .font(BGFont.serifDynamic(30, .medium, relativeTo: .title))
                 .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
-            Text("Swipe up into the evening.")
-                .font(BGFont.serifItalicDynamic(15.5, .regular, relativeTo: .callout))
-                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
+            // The evocative line that changes with the hour now lives here (replacing the old
+            // "Swipe up…" hint), so it reads as a subtitle to the question.
+            Text(line)
+                .font(BGFont.serifItalicDynamic(16, .regular, relativeTo: .callout))
+                .foregroundStyle(palette.brassValue)
                 .multilineTextAlignment(.center)
+                .id(line)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.3), value: line)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
@@ -75,8 +85,8 @@ struct AlarmSetupStep: View {
 
     private func heroReadout(_ s: Schedule) -> some View {
         let parts = Schedule.hourMinute(s.readingMin)
-        let line = contextLine(s.readingMin)
-        return VStack(spacing: 10) {
+        let len = services.settings.defaultLength
+        return VStack(spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(parts.time)
                     .font(BGFont.numeralHero)
@@ -90,14 +100,18 @@ struct AlarmSetupStep: View {
             }
             .animation(.snappy(duration: 0.3), value: s.readingMin)
 
-            Text(line)
-                .font(BGFont.serifItalicDynamic(15, .regular, relativeTo: .callout))
+            // The reading length, set on the ring below, shown prominently under the time.
+            Text(lengthLabel(len))
+                .font(BGFont.serifDynamic(18, .medium, relativeTo: .title3))
                 .foregroundStyle(palette.brassValue)
-                .id(line)
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.3), value: line)
+                .contentTransition(.numericText(value: Double(len)))
+                .animation(.snappy(duration: 0.25), value: len)
         }
         .shadow(color: .black.opacity(0.4), radius: 14, y: 4)
+    }
+
+    private func lengthLabel(_ len: Int) -> String {
+        len == 60 ? String(localized: "Read for 1 hour") : String(localized: "Read for \(len) min")
     }
 
     private func controlBar(_ s: Schedule) -> some View {
@@ -142,17 +156,24 @@ struct AlarmSetupStep: View {
                 if scrubStart == nil {
                     // Reserve the top (dots + title) and the bottom control band.
                     scrubIgnored = value.startLocation.y < 120 || value.startLocation.y > height - 240
-                    scrubStart = s.readingMin
+                    scrubStart = scrubMinutes(s.readingMin)
                 }
-                guard !scrubIgnored else { return }
-                let start = scrubStart ?? s.readingMin
-                let delta = Int((-value.translation.height / Self.pxPerMinute).rounded())  // up = later
-                let snapped = min(max((Int((Double(start + delta) / 5).rounded())) * 5, 0), 1439)
-                if snapped != s.readingMin {
-                    withAnimation(.easeOut(duration: 0.18)) { s.readingMin = snapped }
+                guard !scrubIgnored, let start = scrubStart else { return }
+                // Up = later. Clamp to the 16:00→00:00 window (no 24h wrap); midnight stores as 0.
+                let delta = Int((-value.translation.height / Self.pxPerMinute).rounded())
+                let raw = min(max(start + delta, Self.windowStart), Self.windowEnd)
+                let snappedScrub = min(max(Int((Double(raw) / 5).rounded()) * 5, Self.windowStart), Self.windowEnd)
+                let newReading = snappedScrub == Self.windowEnd ? 0 : snappedScrub
+                if newReading != s.readingMin {
+                    withAnimation(.easeOut(duration: 0.16)) { s.readingMin = newReading }
                 }
             }
             .onEnded { _ in scrubStart = nil; scrubIgnored = false }
+    }
+
+    /// The scrub position (16:00→00:00, in minutes) for a stored reading time; midnight (0) → 1440.
+    private func scrubMinutes(_ readingMin: Int) -> Int {
+        readingMin == 0 ? Self.windowEnd : min(max(readingMin, Self.windowStart), Self.windowEnd)
     }
 
     // MARK: Bindings & copy
@@ -164,16 +185,15 @@ struct AlarmSetupStep: View {
                 set: { services.settings.defaultLength = $0 })
     }
 
-    /// The contextual line under the time — reading-context copy that changes with the hour.
+    /// The contextual line (now the subtitle) — reading-context copy across the 16:00→00:00 window.
+    /// Midnight is stored as 0, so treat it as the late end.
     private func contextLine(_ m: Int) -> String {
-        switch m {
-        case ..<300:  return String(localized: "A late, lamplit page.")         // 00:00–05:00
-        case ..<960:  return String(localized: "A bright-afternoon chapter.")   // –16:00
-        case ..<1110: return String(localized: "An early, unhurried read.")     // –18:30
+        switch (m == 0 ? 1440 : m) {
+        case ..<1110: return String(localized: "An early, unhurried read.")     // 16:00–18:30
         case ..<1200: return String(localized: "Golden-hour pages.")            // –20:00
         case ..<1290: return String(localized: "Prime wind-down hour.")         // –21:30
         case ..<1380: return String(localized: "The house goes quiet.")         // –23:00
-        default:      return String(localized: "A late, lamplit page.")         // 23:00–
+        default:      return String(localized: "A late, lamplit page.")         // 23:00–00:00
         }
     }
 }
@@ -194,39 +214,36 @@ private struct SundialRing: View {
     private var activeIndex: Int { options.firstIndex(of: length) ?? 0 }
 
     var body: some View {
-        VStack(spacing: 12) {
-            GeometryReader { geo in
-                let w = geo.size.width
-                let h = geo.size.height
-                ZStack {
-                    ForEach(options.indices, id: \.self) { i in
-                        let isActive = i == activeIndex
-                        Circle()
-                            .fill(isActive ? AnyShapeStyle(palette.brassValue)
-                                           : AnyShapeStyle(palette.ink(.disabled)))
-                            .frame(width: isActive ? 5 : 3.5, height: isActive ? 5 : 3.5)
-                            .position(point(frac(i), w, h))
-                    }
-                    Bookmark(width: 15, notch: 0.72)
-                        .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
-                        .position(point(frac(activeIndex), w, h))
-                        .animation(.snappy(duration: 0.22), value: length)
+        // Just the arc + bead now — the value ("Read for X min") is shown up under the time.
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            ZStack {
+                ForEach(options.indices, id: \.self) { i in
+                    let isActive = i == activeIndex
+                    Circle()
+                        .fill(isActive ? AnyShapeStyle(palette.brassValue)
+                                       : AnyShapeStyle(palette.ink(.disabled)))
+                        .frame(width: isActive ? 5 : 3.5, height: isActive ? 5 : 3.5)
+                        .position(point(frac(i), w, h))
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let f = max(0, min(1, (value.location.x - inset) / (w - inset * 2)))
-                            let idx = min(max(Int((f * CGFloat(options.count - 1)).rounded()), 0),
-                                          options.count - 1)
-                            if options[idx] != length { length = options[idx] }
-                        }
-                )
+                Bookmark(width: 16, notch: 0.72)
+                    .shadow(color: .black.opacity(0.45), radius: 4, y: 2)
+                    .position(point(frac(activeIndex), w, h))
+                    .animation(.snappy(duration: 0.22), value: length)
             }
-            .frame(height: 30)
-
-            Text(label).sectionLabel()
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let f = max(0, min(1, (value.location.x - inset) / (w - inset * 2)))
+                        let idx = min(max(Int((f * CGFloat(options.count - 1)).rounded()), 0),
+                                      options.count - 1)
+                        if options[idx] != length { length = options[idx] }
+                    }
+            )
         }
+        .frame(height: 36)
         .sensoryFeedback(.selection, trigger: length)
     }
 
@@ -239,10 +256,5 @@ private struct SundialRing: View {
         let x = inset + f * (w - inset * 2)
         let y = (h - 8) - sin(f * .pi) * arcDepth   // lifts in the middle, mirroring the sky's arc
         return CGPoint(x: x, y: y)
-    }
-
-    private var label: String {
-        length == 60 ? String(localized: "Read for 1 hour")
-                     : String(localized: "Read for \(length) min")
     }
 }

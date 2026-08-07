@@ -11,10 +11,10 @@ struct ReadingSkyStage: View {
     var readingMin: Int
 
     /// Where the warm horizon glow sits, as a fraction of the stage height (low, in the golden band).
-    private let glowY: CGFloat = 0.62
-    /// The moon rides its own upper lane so it never collides with the centred readout: `moonLowY`
-    /// at early evening (still above the numeral), rising to `moonHighY` at deep night.
-    private let moonLowY: CGFloat = 0.38
+    private let glowY: CGFloat = 0.64
+    /// The moon's travel. It rides the upper sky *above* the centred time numeral (which owns the
+    /// middle): low & nearly faded-out at 16:00, rising to the top by midnight.
+    private let moonLowY: CGFloat = 0.42
     private let moonHighY: CGFloat = 0.14
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -23,6 +23,8 @@ struct ReadingSkyStage: View {
         GeometryReader { geo in
             let n = ReadingSky.nightness(readingMin)
             let size = geo.size
+            // Moon barely visible at 16:00 (n≈0), fading up to full as the evening deepens.
+            let moonReveal = min(1.0, 0.05 + n * 2.8)
             ZStack {
                 // 1 — sky gradient, warm dusk → espresso as night deepens
                 LinearGradient(colors: [ReadingSky.top(n), ReadingSky.bottom(n)],
@@ -41,8 +43,9 @@ struct ReadingSkyStage: View {
                 // 3 — stars, fading in after dusk
                 StarField(nightness: n, size: size)
 
-                // 4 — the moon: the only celestial body, rising with nightness in its upper lane
+                // 4 — the moon: the only celestial body, rising with nightness
                 Moon(nightness: n, reduceMotion: reduceMotion)
+                    .opacity(moonReveal)
                     .position(x: size.width * 0.72,
                               y: size.height * (moonLowY - CGFloat(n) * (moonLowY - moonHighY)))
             }
@@ -60,27 +63,42 @@ private struct Moon: View {
     @State private var breathe = false
 
     var body: some View {
-        // Cream core, brass limb — warmer when low over the glow, cooler brass when high in the dark.
-        let core = ReadingSky.lerpHex(0xFFF3DE, 0xF7EFE4, nightness)
-        let edge = ReadingSky.lerpHex(0xE9B872, 0xC9A25E, nightness)
+        // A pale bone-grey moon (not a golden sun): warm-toned but clearly desaturated, cooler as it
+        // climbs into the dark. The halo is a soft warm-white, not amber.
+        let core = ReadingSky.lerpHex(0xE7E0D2, 0xEFEADE, nightness)
+        let edge = ReadingSky.lerpHex(0xB1A794, 0xC4BAA6, nightness)
         ZStack {
             Circle()
-                .fill(RadialGradient(colors: [Color(hex: 0xF0C68F, opacity: 0.55), .clear],
+                .fill(RadialGradient(colors: [Color(hex: 0xEADFC6, opacity: 0.42), .clear],
                                      center: .center, startRadius: 0, endRadius: 62))
                 .frame(width: 156, height: 156)
                 .blur(radius: 18)
                 .scaleEffect(reduceMotion ? 1 : (breathe ? 1.06 : 0.97))
             Circle()
                 .fill(RadialGradient(colors: [core, edge],
-                                     center: UnitPoint(x: 0.42, y: 0.40),
+                                     center: UnitPoint(x: 0.40, y: 0.38),
                                      startRadius: 2, endRadius: 44))
                 .frame(width: 70, height: 70)
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 1).blendMode(.plusLighter))
+                .overlay {
+                    // faint craters — the grey mottling that reads as a moon rather than a sun
+                    ZStack {
+                        crater(15, -9, -6, 0.16)
+                        crater(10, 12, 8, 0.13)
+                        crater(7, 4, -13, 0.11)
+                        crater(6, -14, 9, 0.10)
+                    }
+                    .clipShape(Circle())
+                }
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.16), lineWidth: 1).blendMode(.plusLighter))
         }
-        .shadow(color: Color(hex: 0xF0C68F, opacity: 0.35 * nightness), radius: 22)
+        .shadow(color: Color(hex: 0xEADFC6, opacity: 0.28 * nightness), radius: 22)
         .animation(reduceMotion ? nil : .easeInOut(duration: 5).repeatForever(autoreverses: true), value: breathe)
         .onAppear { breathe = true }
         .allowsHitTesting(false)
+    }
+
+    private func crater(_ d: CGFloat, _ x: CGFloat, _ y: CGFloat, _ o: Double) -> some View {
+        Circle().fill(Color(hex: 0x8F8676, opacity: o)).frame(width: d, height: d).offset(x: x, y: y)
     }
 }
 
@@ -131,12 +149,16 @@ enum ReadingSky {
         Key(n: 1.00, top: 0x0B0806, bottom: 0x100C09, glow: 0x3B2A1A),
     ]
 
-    /// Darkness of the sky for a given reading time: darkest at midnight, brightest at noon, with a
-    /// smooth dusk/dawn transition. Robust for any minute-of-day (wee hours read as deep night).
+    /// Darkness of the sky across the allowed reading window **16:00 → 00:00**: 0 (bright, moon
+    /// hidden) at 16:00, easing to 1 (deep night, moon at the top) at midnight. Midnight is stored as
+    /// `readingMin == 0`; everything is clamped into the window so there's no 24-hour wrap.
+    static let windowStart = 960.0    // 16:00
+    static let windowEnd   = 1440.0   // 00:00 (next day)
+
     static func nightness(_ readingMin: Int) -> Double {
-        let m = Double(((readingMin % 1440) + 1440) % 1440)
-        let base = (1 + cos(2 * Double.pi * m / 1440)) / 2   // 1 at 00:00, 0 at 12:00
-        return base * base * (3 - 2 * base)                  // smoothstep for a punchier dusk
+        let scrub = readingMin == 0 ? windowEnd : min(max(Double(readingMin), windowStart), windowEnd)
+        let t = (scrub - windowStart) / (windowEnd - windowStart)   // 0 at 16:00 … 1 at 00:00
+        return t * t * (3 - 2 * t)                                  // smoothstep for a punchier dusk
     }
 
     static func top(_ n: Double) -> Color { color(n) { $0.top } }
