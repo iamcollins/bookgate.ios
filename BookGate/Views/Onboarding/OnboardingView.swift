@@ -1,17 +1,17 @@
 import SwiftUI
 import UserNotifications
 
-/// First-open onboarding — 7 steps, order normative: welcome → how it works → add your book
-/// (skippable) → length → shielded apps → permissions → trial. **Only the four middle steps carry
-/// the numbered dots** (add·length·apps·permissions) so setup never feels like seven. The paywall
-/// goes last, so the trial starts against a real book, time and app list.
+/// First-open onboarding — 8 steps, order normative: welcome → how it works → set your reading time
+/// → add your book (skippable) → length → shielded apps → permissions → trial. **Only the five setup
+/// steps carry the numbered dots** (alarm·add·length·apps·permissions) so setup never feels like
+/// eight. The paywall goes last, so the trial starts against a real book, time and app list.
 struct OnboardingView: View {
     var onComplete: () -> Void
 
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
 
-    enum Step: Int, CaseIterable { case welcome, how, addBook, length, apps, permissions, paywall }
+    enum Step: Int, CaseIterable { case welcome, how, alarm, addBook, length, apps, permissions, paywall }
     @State private var step: Step = {
         #if DEBUG
         if let v = ProcessInfo.processInfo.environment["BOOKGATE_ONB_STEP"], let i = Int(v),
@@ -20,14 +20,24 @@ struct OnboardingView: View {
         return .welcome
     }()
 
-    /// The four steps that carry dots.
-    private static let dotted: [Step] = [.addBook, .length, .apps, .permissions]
+    /// The five setup steps that carry dots.
+    private static let dotted: [Step] = [.alarm, .addBook, .length, .apps, .permissions]
     private var dotIndex: Int? { Self.dotted.firstIndex(of: step) }
 
     var body: some View {
         ZStack {
-            // Welcome carries its own single glow behind the book; other steps use the drift blobs.
-            BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: step != .welcome)
+            // The alarm step gets a full-bleed evening sky behind everything (dots included); welcome
+            // carries its own single glow behind the book; every other step uses the drifting blobs.
+            if step == .alarm {
+                // The step draws the sky; here we only fill the strip above it (behind the dots) with
+                // the sky's top colour so the two meet seamlessly. Read the time without creating the
+                // alarm (the step creates/owns it) to avoid mutating the store during layout.
+                let mins = services.store.alarms.first(where: { $0.isOn })?.readingMin
+                    ?? services.store.alarms.first?.readingMin ?? 1260
+                ReadingSky.top(ReadingSky.nightness(mins)).ignoresSafeArea()
+            } else {
+                BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: step != .welcome)
+            }
             VStack(spacing: 0) {
                 if let dotIndex {
                     PageDots(count: Self.dotted.count, index: dotIndex).padding(.top, 60)
@@ -36,6 +46,7 @@ struct OnboardingView: View {
                     switch step {
                     case .welcome:     WelcomeStep(next: next, restore: restore)
                     case .how:         HowItWorksStep(next: next)
+                    case .alarm:       AlarmSetupStep(next: next)
                     case .addBook:     AddBookStep(next: next)
                     case .length:      LengthStep(next: next)
                     case .apps:        AppsStep(next: next)
