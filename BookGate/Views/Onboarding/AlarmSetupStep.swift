@@ -8,9 +8,13 @@ import SwiftUI
 /// arc). Both write the single reading alarm's `readingMin`; the day pills set its active nights.
 struct AlarmSetupStep: View {
     var next: () -> Void
+    /// Mirrors the currently-shown minute up to OnboardingView so the strip behind the page dots
+    /// tracks the sky (including during the load auto-rise).
+    @Binding var skyMin: Int
 
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The single reading alarm, captured on appear so `body` never mutates the store to create it.
     @State private var schedule: Schedule?
@@ -19,11 +23,17 @@ struct AlarmSetupStep: View {
     // dead-zone so a drag near the dots or the control bar doesn't scrub.
     @State private var scrubStart: Int?
     @State private var scrubIgnored = false
+    /// The load auto-rise. `animMin` (a Double minute) sweeps from 16:00 up to the default via one
+    /// `withAnimation`, so SwiftUI interpolates the whole scene — sky, moon, and the rolling time —
+    /// frame-by-frame (both the sky and the numeral are `Animatable`). `rising` guards the ~2s window.
+    @State private var animMin: Double = 960   // start bright (16:00) so entering the step never flashes dark
+    @State private var rising = false
     /// Swipe sensitivity: fewer points per minute = the moon/time move faster under the finger.
     private static let pxPerMinute: CGFloat = 1.05
     /// The allowed window: 16:00 → 00:00 (midnight stored as readingMin 0).
     private static let windowStart = 960     // 16:00
     private static let windowEnd = 1440      // 00:00 next day
+    private static let riseDuration: Double = 2.2
 
     var body: some View {
         Group {
@@ -33,19 +43,20 @@ struct AlarmSetupStep: View {
                 Color.clear
             }
         }
-        .onAppear { if schedule == nil { schedule = services.store.primary } }
+        .onAppear {
+            if schedule == nil { schedule = services.store.primary }
+            startRise()
+        }
     }
 
     private func content(_ s: Schedule) -> some View {
-        // The sky lives here (so its geometry — and the moon's travel — is the step's own height).
-        // OnboardingView fills the strip above this slot with the sky's top colour so there's no seam.
         GeometryReader { geo in
             ZStack {
-                ReadingSkyStage(readingMin: s.readingMin)
+                ReadingSkyStage(minute: animMin)
                 VStack(spacing: 0) {
-                    titleBlock(s)
+                    titleBlock
                     Spacer(minLength: 0)
-                    heroReadout(s)
+                    heroReadout(length: services.settings.defaultLength)
                     Spacer(minLength: 0).frame(maxHeight: 96)
                     controlBar(s)
                 }
@@ -59,49 +70,73 @@ struct AlarmSetupStep: View {
         .sensoryFeedback(.selection, trigger: s.readingMin)
     }
 
+    /// Play the auto-rise once on load: hold at 16:00 for a frame, then ease up to the default. Skips
+    /// under Reduce Motion or when the stored time is already 16:00.
+    private func startRise() {
+        guard let s = schedule else { return }
+        let target = s.readingMin == 0 ? Self.windowEnd : s.readingMin
+        guard !reduceMotion, target > Self.windowStart else {
+            animMin = Double(target); skyMin = target; return
+        }
+        animMin = Double(Self.windowStart)
+        skyMin = Self.windowStart
+        rising = true
+        // Start on the very next runloop (so the 16:00 frame paints first), then rise — no dead time.
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: Self.riseDuration)) {
+                animMin = Double(target)
+                skyMin = target
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.riseDuration + 0.05) { rising = false }
+    }
+
     // MARK: Pieces
 
-    private func titleBlock(_ s: Schedule) -> some View {
-        let line = contextLine(s.readingMin)
-        return VStack(spacing: 10) {
+    private var titleBlock: some View {
+        VStack(spacing: 10) {
             Text("When do you read?")
                 .font(BGFont.serifDynamic(30, .medium, relativeTo: .title))
                 .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
-            // The evocative line that changes with the hour now lives here (replacing the old
-            // "Swipe up…" hint), so it reads as a subtitle to the question.
-            Text(line)
-                .font(BGFont.serifItalicDynamic(16, .regular, relativeTo: .callout))
-                .foregroundStyle(palette.brassValue)
-                .multilineTextAlignment(.center)
-                // A tight dark halo so the line stays legible when the risen moon sits behind it.
-                .shadow(color: .black.opacity(0.6), radius: 4)
-                .shadow(color: .black.opacity(0.4), radius: 9)
-                .id(line)
-                .transition(.opacity)
-                .animation(.easeInOut(duration: 0.3), value: line)
+            // The evocative line that changes with the hour — interpolated (Animatable) so it tracks
+            // the rolling time during the rise.
+            MinuteText(minute: animMin) { m in
+                Text(Self.contextLine(m))
+                    .font(BGFont.serifItalicDynamic(16, .regular, relativeTo: .callout))
+                    .foregroundStyle(palette.brassValue)
+                    .multilineTextAlignment(.center)
+                    .shadow(color: .black.opacity(0.6), radius: 4)
+                    .shadow(color: .black.opacity(0.4), radius: 9)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
         .shadow(color: .black.opacity(0.3), radius: 10, y: 3)
     }
 
-    private func heroReadout(_ s: Schedule) -> some View {
-        let parts = Schedule.hourMinute(s.readingMin)
-        let len = services.settings.defaultLength
-        return VStack(spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(parts.time)
-                    .font(BGFont.numeralHero)
-                    .foregroundStyle(palette.ink(.hero))
-                    .contentTransition(.numericText(value: Double(s.readingMin)))
-                if !parts.marker.isEmpty {
-                    Text(parts.marker)
-                        .font(BGFont.serif(23, .medium))
-                        .foregroundStyle(palette.ink(.secondary))
+    private func heroReadout(length len: Int) -> some View {
+        VStack(spacing: 12) {
+            // The time. During the rise it advances in calm **whole-hour** steps (16→17→…→21) so it
+            // doesn't blur through every minute; once settled/scrubbing it shows the exact time. A
+            // fixed-width frame keeps the variable-width serif digits from jittering.
+            MinuteText(minute: animMin) { m in
+                let shown = rising ? Int((Double(m) / 60).rounded()) * 60 : m
+                let parts = Schedule.hourMinute(shown)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(parts.time)
+                        .font(BGFont.numeralHero)
+                        .foregroundStyle(palette.ink(.hero))
+                        .shadow(color: .black.opacity(0.55), radius: 4)
+                        .shadow(color: .black.opacity(0.4), radius: 10)
+                    if !parts.marker.isEmpty {
+                        Text(parts.marker)
+                            .font(BGFont.serif(23, .medium))
+                            .foregroundStyle(palette.ink(.secondary))
+                    }
                 }
+                .frame(width: 320)
             }
-            .animation(.snappy(duration: 0.3), value: s.readingMin)
 
             // The reading length, set on the ring below, shown prominently under the time.
             Text(lengthLabel(len))
@@ -156,6 +191,7 @@ struct AlarmSetupStep: View {
     private func scrub(_ s: Schedule, height: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 6)
             .onChanged { value in
+                if rising { return }        // let the load auto-rise finish before hand control over
                 if scrubStart == nil {
                     // Reserve the top (dots + title) and the bottom control band.
                     scrubIgnored = value.startLocation.y < 120 || value.startLocation.y > height - 240
@@ -168,7 +204,12 @@ struct AlarmSetupStep: View {
                 let snappedScrub = min(max(Int((Double(raw) / 5).rounded()) * 5, Self.windowStart), Self.windowEnd)
                 let newReading = snappedScrub == Self.windowEnd ? 0 : snappedScrub
                 if newReading != s.readingMin {
-                    withAnimation(.easeOut(duration: 0.16)) { s.readingMin = newReading }
+                    // Glide the sky/time between 5-minute steps (matches Thrise's easeOut scrub).
+                    withAnimation(.easeOut(duration: 0.16)) {
+                        s.readingMin = newReading
+                        animMin = Double(snappedScrub)
+                        skyMin = newReading
+                    }
                 }
             }
             .onEnded { _ in scrubStart = nil; scrubIgnored = false }
@@ -190,7 +231,7 @@ struct AlarmSetupStep: View {
 
     /// The contextual line (now the subtitle) — reading-context copy across the 16:00→00:00 window.
     /// Midnight is stored as 0, so treat it as the late end.
-    private func contextLine(_ m: Int) -> String {
+    private static func contextLine(_ m: Int) -> String {
         switch (m == 0 ? 1440 : m) {
         case ..<1110: return String(localized: "An early, unhurried read.")     // 16:00–18:30
         case ..<1200: return String(localized: "Golden-hour pages.")            // –20:00
@@ -198,6 +239,25 @@ struct AlarmSetupStep: View {
         case ..<1380: return String(localized: "The house goes quiet.")         // –23:00
         default:      return String(localized: "A late, lamplit page.")         // 23:00–00:00
         }
+    }
+}
+
+// MARK: - Animatable minute text
+
+/// Renders content from a whole-minute value, but is `Animatable` on that minute — so under a
+/// `withAnimation` the content recomputes each frame with the interpolated minute (a smooth count-up),
+/// instead of jumping or fighting a per-change transition.
+private struct MinuteText<Content: View>: View, Animatable {
+    var minute: Double
+    @ViewBuilder var content: (Int) -> Content
+
+    var animatableData: Double {
+        get { minute }
+        set { minute = newValue }
+    }
+
+    var body: some View {
+        content(Int(minute.rounded()))
     }
 }
 

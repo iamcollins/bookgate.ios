@@ -20,9 +20,21 @@ struct OnboardingView: View {
         return .welcome
     }()
 
+    /// The minute the alarm step's sky is currently showing (driven by the step, including its load
+    /// auto-rise) so the strip behind the page dots matches the sky's top colour at every moment.
+    /// Starts at the bright 16:00 so the strip never flashes dark while transitioning into the step.
+    @State private var alarmSkyMin = 960
+
     /// The five setup steps that carry dots.
     private static let dotted: [Step] = [.alarm, .addBook, .length, .apps, .permissions]
     private var dotIndex: Int? { Self.dotted.firstIndex(of: step) }
+
+    /// Step crossfade duration. Entering the alarm step is **instant** — crossfading it would leave
+    /// the previous screen's content fading over the half-faded (semi-transparent) sky, which reads as
+    /// a dark strip at the top. Its own load auto-rise is the entrance instead.
+    private var stepAnimDuration: Double {
+        step == .alarm ? 0 : 0.35
+    }
 
     var body: some View {
         ZStack {
@@ -30,11 +42,9 @@ struct OnboardingView: View {
             // carries its own single glow behind the book; every other step uses the drifting blobs.
             if step == .alarm {
                 // The step draws the sky; here we only fill the strip above it (behind the dots) with
-                // the sky's top colour so the two meet seamlessly. Read the time without creating the
-                // alarm (the step creates/owns it) to avoid mutating the store during layout.
-                let mins = services.store.alarms.first(where: { $0.isOn })?.readingMin
-                    ?? services.store.alarms.first?.readingMin ?? 1260
-                ReadingSky.top(ReadingSky.nightness(mins)).ignoresSafeArea()
+                // the sky's top colour so the two meet seamlessly. `alarmSkyMin` is driven by the step
+                // (including its load auto-rise) so this strip tracks the sky at every moment.
+                ReadingSky.top(ReadingSky.nightness(alarmSkyMin)).ignoresSafeArea()
             } else {
                 BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: step != .welcome)
             }
@@ -46,7 +56,7 @@ struct OnboardingView: View {
                     switch step {
                     case .welcome:     WelcomeStep(next: next, restore: restore)
                     case .how:         HowItWorksStep(next: next)
-                    case .alarm:       AlarmSetupStep(next: next)
+                    case .alarm:       AlarmSetupStep(next: next, skyMin: $alarmSkyMin)
                     case .addBook:     AddBookStep(next: next)
                     case .length:      LengthStep(next: next)
                     case .apps:        AppsStep(next: next)
@@ -56,14 +66,21 @@ struct OnboardingView: View {
                 }
                 .environment(services)
                 .frame(maxHeight: .infinity)
+                // Crossfade only the step *content*, not the background — so the background swaps
+                // instantly to the (bright) alarm sky and the top strip never flashes dark.
+                .animation(.easeInOut(duration: stepAnimDuration), value: step)
             }
         }
         .nightFlow()   // onboarding shows the dark brand surface regardless of system theme
-        .animation(.easeInOut(duration: 0.35), value: step)
     }
 
     private func next() {
-        if let n = Step(rawValue: step.rawValue + 1) { step = n }
+        if let n = Step(rawValue: step.rawValue + 1) {
+            // Reset the alarm strip to the bright 16:00 start *before* the crossfade, so entering the
+            // alarm step never shows a dark top strip.
+            if n == .alarm { alarmSkyMin = 960 }
+            step = n
+        }
     }
     private func restore() {
         Task { if await services.subscription.restore() == .restored { finish() } }

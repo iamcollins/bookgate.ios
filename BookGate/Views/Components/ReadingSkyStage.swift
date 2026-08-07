@@ -6,25 +6,33 @@ import SwiftUI
 /// There is deliberately **no sun body**: a single vertical drag can't make a sun set *down* and
 /// a moon rise *up* at once (opposite motions), so the early hours are just a warm amber horizon
 /// **glow** that fades. Pure SwiftUI (gradients + radial glows) in warm brand tones — not photoreal.
-struct ReadingSkyStage: View {
-    /// Reading time in minutes past midnight (0…1439). Drives darkness, moon altitude, glow, stars.
-    var readingMin: Int
+struct ReadingSkyStage: View, Animatable {
+    /// Minute-of-day (as a Double so SwiftUI can interpolate it smoothly during the load auto-rise
+    /// and between scrub steps). Drives darkness, moon altitude, glow, stars.
+    var minute: Double
+
+    // Interpolate `minute` frame-by-frame under `withAnimation` — the smooth rise, done the SwiftUI way.
+    var animatableData: Double {
+        get { minute }
+        set { minute = newValue }
+    }
 
     /// Where the warm horizon glow sits, as a fraction of the stage height (low, in the golden band).
     private let glowY: CGFloat = 0.64
-    /// The moon's travel. It rides the upper sky *above* the centred time numeral (which owns the
-    /// middle): low & nearly faded-out at 16:00, rising to the top by midnight.
-    private let moonLowY: CGFloat = 0.35
-    private let moonHighY: CGFloat = 0.14
+    /// The moon rides the upper sky, above the centred time numeral, so it never washes over the
+    /// digits: low at early evening, rising to the top by midnight.
+    private let moonLowY: CGFloat = 0.40
+    private let moonHighY: CGFloat = 0.13
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
-            let n = ReadingSky.nightness(readingMin)
+            let n = ReadingSky.nightness(minute: minute)
             let size = geo.size
-            // Moon barely visible at 16:00 (n≈0), fading up to full as the evening deepens.
-            let moonReveal = min(1.0, 0.05 + n * 2.8)
+            // Moon stays hidden while it's still bright (16:00–~17:00), then fades in as it gets dark.
+            let rr = min(max((n - 0.15) / 0.32, 0), 1)
+            let moonReveal = rr * rr * (3 - 2 * rr)
             ZStack {
                 // 1 — sky gradient, warm dusk → espresso as night deepens
                 LinearGradient(colors: [ReadingSky.top(n), ReadingSky.bottom(n)],
@@ -126,12 +134,13 @@ private struct StarField: View {
 enum ReadingSky {
     private struct Key { let n: Double; let top: UInt32; let bottom: UInt32; let glow: UInt32 }
 
-    /// Keyframes by `nightness` (0 = golden early evening … 1 = deep midnight). Tuned by eye.
+    /// Keyframes by `nightness` (0 = bright 16:00 … 1 = darkest 00:00). Brightness steps down at each
+    /// key so the darkening reads evenly across the evening rather than all at once late on.
     private static let keys: [Key] = [
         Key(n: 0.00, top: 0x3A2A1A, bottom: 0xC88A4A, glow: 0xECB670),
-        Key(n: 0.30, top: 0x281C12, bottom: 0xA5662E, glow: 0xE0A25A),
-        Key(n: 0.55, top: 0x1A130D, bottom: 0x5A3C1E, glow: 0xC67C4A),
-        Key(n: 0.80, top: 0x130E0A, bottom: 0x2A1C12, glow: 0x8A5A22),
+        Key(n: 0.25, top: 0x2C2015, bottom: 0x9A5E2A, glow: 0xD0913F),
+        Key(n: 0.50, top: 0x201710, bottom: 0x5E3E1E, glow: 0xA96C34),
+        Key(n: 0.75, top: 0x150F0A, bottom: 0x30200F, glow: 0x6E4926),
         Key(n: 1.00, top: 0x0B0806, bottom: 0x100C09, glow: 0x3B2A1A),
     ]
 
@@ -140,19 +149,24 @@ enum ReadingSky {
     /// `readingMin == 0`; everything is clamped into the window so there's no 24-hour wrap.
     static let windowStart = 960.0    // 16:00
     static let windowEnd   = 1440.0   // 00:00 (next day)
+    static let duskAnchor  = 1140.0   // 19:00 — already dark dusk by here
+    static let fullDark    = 1380.0   // 23:00 — darkest reached here, then held
 
-    static let duskStart = 1140.0   // 19:00 — where the sky starts to darken
-
+    /// Darkness rises **fast** early: brightest at 16:00, hitting a dark dusk by 19:00, the darkest
+    /// by 23:00, and simply holding at the darkest from 23:00 to midnight. So 21:00 is already deep.
+    /// Int convenience: midnight is stored as 0, so treat it as the darkest end.
     static func nightness(_ readingMin: Int) -> Double {
-        let scrub = readingMin == 0 ? windowEnd : min(max(Double(readingMin), windowStart), windowEnd)
-        if scrub <= duskStart {
-            // 16:00 → 19:00: bright golden, only a faint dimming as dusk approaches.
-            let p = (scrub - windowStart) / (duskStart - windowStart)
-            return 0.12 * p
-        } else {
-            // 19:00 → 00:00: darken steadily to the darkest at midnight.
-            let p = (scrub - duskStart) / (windowEnd - duskStart)
-            return 0.12 + 0.88 * p
+        nightness(minute: readingMin == 0 ? windowEnd : Double(readingMin))
+    }
+
+    static func nightness(minute: Double) -> Double {
+        let scrub = min(max(minute, windowStart), windowEnd)
+        if scrub <= duskAnchor {                       // 16:00 → 19:00: bright → dark dusk
+            return 0.62 * (scrub - windowStart) / (duskAnchor - windowStart)
+        } else if scrub <= fullDark {                  // 19:00 → 23:00: dark dusk → darkest
+            return 0.62 + 0.38 * (scrub - duskAnchor) / (fullDark - duskAnchor)
+        } else {                                       // 23:00 → 00:00: hold at the darkest
+            return 1.0
         }
     }
 
