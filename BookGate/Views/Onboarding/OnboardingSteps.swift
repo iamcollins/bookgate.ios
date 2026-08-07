@@ -96,8 +96,8 @@ struct BookMark: View {
                 .offset(x: 132/2 - 28 - 13, y: -132/2 - 8 + 37)
         }
         .frame(width: 132, height: 132)
-        .offset(y: reduceMotion ? 0 : (float ? -6 : 4))
-        .animation(reduceMotion ? nil : .easeInOut(duration: 7).repeatForever(autoreverses: true), value: float)
+        .offset(y: reduceMotion ? 0 : (float ? -9 : 5))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 4.5).repeatForever(autoreverses: true), value: float)
         .onAppear { float = true }
     }
 
@@ -115,65 +115,121 @@ struct BookMark: View {
 struct HowItWorksStep: View {
     var next: () -> Void
     @Environment(\.bgPalette) private var palette
-    private let cards: [(num: String, symbol: String, title: String, body: String)] = [
-        ("01", "clock", "Set your reading time", "One time, one length. It rings like an alarm, not a banner you swipe away."),
-        ("02", "camera", "Show your book", "Hold the cover to the camera. That's what starts the session."),
-        ("03", "nosign", "Read without the noise", "The apps that usually win are held back until you finish."),
-        ("04", "waveform", "Say what mattered", "Thirty seconds in your own voice, kept under the book forever."),
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let steps: [(num: String, symbol: String, filled: Bool, title: String, sub: String)] = [
+        ("01", "clock", false, "Your reading alarm", "Set the hour once — it finds you every night."),
+        ("02", "camera", false, "You and your book", "A photo of you both starts the session."),
+        ("03", "shield", false, "The noise waits", "Chosen apps stay shut until you finish."),
+        ("04", "waveform", false, "Record a takeaway", "A few words in your own voice, kept with the book."),
     ]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Spacer().frame(height: 8)
-                    Text("Four steps,\nevery night.")
-                        .font(BGFont.serifDynamic(32, .medium, relativeTo: .largeTitle))
-                        .foregroundStyle(palette.ink(.hero))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    VStack(spacing: 12) {
-                        ForEach(cards, id: \.num) { card in row(card) }
+        VStack(spacing: 0) {
+            // TOP — title + subtitle
+            VStack(alignment: .leading, spacing: 12) {
+                Text("A few minutes,\nevery night.")
+                    .font(BGFont.serifDynamic(36, .medium, relativeTo: .largeTitle))
+                    .foregroundStyle(palette.ink(.hero))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Build the reading habit you keep meaning to start.")
+                    .font(BGFont.serifItalicDynamic(16.5, .regular, relativeTo: .callout))
+                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.6))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // MIDDLE — steps evenly distributed; connector drawn as separate gap-only segments.
+            GeometryReader { geo in
+                let n = steps.count
+                let rowH = geo.size.height / CGFloat(n)
+                ZStack(alignment: .topLeading) {
+                    ForEach(0..<(n - 1), id: \.self) { i in
+                        let gapTop = rowH * (CGFloat(i) + 0.5) + 26      // bottom edge of circle i
+                        let gapBottom = rowH * (CGFloat(i) + 1.5) - 26   // top edge of circle i+1
+                        Rectangle().fill(Color(hex: 0xE9B872, opacity: 0.3))
+                            .frame(width: 1, height: max(0, gapBottom - gapTop))
+                            .position(x: 26, y: (gapTop + gapBottom) / 2)
                     }
-                    .padding(.top, 24)
+                    VStack(spacing: 0) {
+                        ForEach(Array(steps.enumerated()), id: \.offset) { i, step in
+                            timelineRow(step, index: i).frame(height: rowH)
+                        }
+                    }
                 }
             }
             .frame(maxHeight: .infinity)
+
+            Spacer().frame(height: 24)   // breathing room under the last step
+
+            // BOTTOM — button
             Button("Set it up") { next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-                .padding(.top, 12)
         }
-        .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 40)
+        .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 40)
     }
 
-    private func row(_ card: (num: String, symbol: String, title: String, body: String)) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            iconTile(card.symbol)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(card.num).font(.caption2).fontWeight(.semibold).foregroundStyle(palette.brassValue)
-                    Text(card.title).font(.callout).fontWeight(.semibold).foregroundStyle(palette.ink(.hero))
+    private func timelineRow(_ step: (num: String, symbol: String, filled: Bool, title: String, sub: String),
+                             index: Int) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            node(step.symbol, filled: step.filled, index: index).frame(width: 52)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(step.num).font(.caption2).fontWeight(.semibold).tracking(1)
+                        .foregroundStyle(palette.brassValue)
+                    Rectangle().fill(Color(hex: 0xE9B872, opacity: 0.4)).frame(width: 22, height: 1)
                 }
-                Text(card.body).font(.footnote)
-                    .foregroundStyle(palette.ink(.secondary))
+                Text(step.title)
+                    .font(BGFont.serifDynamic(25, .medium, relativeTo: .title2))
+                    .foregroundStyle(palette.ink(.hero))
+                Text(step.sub)
+                    .font(.callout).foregroundStyle(palette.ink(.secondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 15).padding(.horizontal, 16)
-        .frame(maxWidth: .infinity)
-        .glass(.card, cornerRadius: 22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    /// 44×44 brass-tinted rounded-square icon tile.
-    private func iconTile(_ symbol: String) -> some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color(hex: 0xE9B872, opacity: 0.16))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color(hex: 0xE9B872, opacity: 0.3), lineWidth: 1))
-            .frame(width: 44, height: 44)
+    /// 52pt circular node with a brass icon (filled variant for the shield). The icons breathe
+    /// **one at a time** — each does two breaths (scale + a subtle brass glow), then the next takes
+    /// over, looping forever down the timeline. Frozen under Reduce Motion.
+    private func node(_ symbol: String, filled: Bool, index: Int) -> some View {
+        Circle()
+            .fill(Color(hex: 0xE9B872, opacity: filled ? 0.16 : 0.0))
+            .overlay(Circle().strokeBorder(Color(hex: 0xE9B872, opacity: 0.35), lineWidth: 1.5))
+            .frame(width: 52, height: 52)
             .overlay {
-                Image(systemName: symbol).font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color(hex: 0xE9B872))
+                // glow behind the icon, brightening on each breath
+                Circle()
+                    .fill(RadialGradient(colors: [Color(hex: 0xF0C68F), .clear],
+                                         center: .center, startRadius: 0, endRadius: 34))
+                    .frame(width: 66, height: 66).blur(radius: 9)
+                    .keyframeAnimator(initialValue: 0.0, repeating: !reduceMotion) { view, p in
+                        view.opacity(reduceMotion ? 0 : 0.55 * p).scaleEffect(0.8 + 0.4 * p)
+                    } keyframes: { _ in breathCycle(index: index) }
             }
+            .overlay {
+                Image(systemName: symbol).font(.system(size: 21, weight: .regular))
+                    .foregroundStyle(Color(hex: 0xE9B872))
+                    .keyframeAnimator(initialValue: 0.0, repeating: !reduceMotion) { view, p in
+                        view.scaleEffect(reduceMotion ? 1 : 1 + 0.10 * p)
+                    } keyframes: { _ in breathCycle(index: index) }
+            }
+    }
+
+    /// One full loop cycle for a node: wait for its turn, breathe **twice** (slow), then wait while
+    /// the others go — every node's cycle is the same length, so `repeating` keeps them in sequence.
+    @KeyframesBuilder<Double>
+    private func breathCycle(index: Int) -> some Keyframes<Double> {
+        let half = 1.6                     // slow breath: 1.6s per half (~3.2s per breath)
+        let slot = 2.0 * (2 * half)        // two breaths per turn
+        KeyframeTrack(\.self) {
+            LinearKeyframe(0.0, duration: Double(index) * slot + 0.0001)            // wait for turn
+            CubicKeyframe(1.0, duration: half); CubicKeyframe(0.0, duration: half)  // breath 1
+            CubicKeyframe(1.0, duration: half); CubicKeyframe(0.0, duration: half)  // breath 2
+            LinearKeyframe(0.0, duration: Double(steps.count - 1 - index) * slot + 0.0001) // wait for others
+        }
     }
 }
 

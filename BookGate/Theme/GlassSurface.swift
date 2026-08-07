@@ -6,14 +6,19 @@ enum GlassLevel {
 
 extension View {
     /// Vellum glass: blurred backdrop + warm tint + border + the ever-present inner top highlight.
-    func glass(_ level: GlassLevel = .card, cornerRadius: CGFloat = 22) -> some View {
-        modifier(GlassSurface(level: level, cornerRadius: cornerRadius))
+    /// Warm translucent glass — the design's vellum tint + border + inner top highlight.
+    /// `material` (default off) adds SwiftUI's system blur behind the tint; it reads as a cool grey
+    /// over the warm base, so it's only worth passing `material: true` for a surface floating over
+    /// genuinely busy content (e.g. the tab bar). Everywhere else the warm tint matches the design.
+    func glass(_ level: GlassLevel = .card, cornerRadius: CGFloat = 22, material: Bool = false) -> some View {
+        modifier(GlassSurface(level: level, cornerRadius: cornerRadius, material: material))
     }
 }
 
 struct GlassSurface: ViewModifier {
     var level: GlassLevel = .card
     var cornerRadius: CGFloat = 22
+    var material: Bool = true
     @Environment(\.bgPalette) private var palette
 
     private var fill: Color {
@@ -28,9 +33,13 @@ struct GlassSurface: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
-                shape
-                    .fill(.ultraThinMaterial)      // the blur(20–24px)
-                    .overlay(shape.fill(fill))     // the warm tint on top
+                if material {
+                    shape
+                        .fill(.ultraThinMaterial)  // the blur(20–24px)
+                        .overlay(shape.fill(fill)) // the warm tint on top
+                } else {
+                    shape.fill(fill)               // warm translucent tint only (no grey frost)
+                }
             }
             .overlay {
                 shape.strokeBorder(palette.glassBorder, lineWidth: 1)
