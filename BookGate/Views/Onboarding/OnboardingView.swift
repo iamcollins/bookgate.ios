@@ -1,17 +1,18 @@
 import SwiftUI
 import UserNotifications
 
-/// First-open onboarding — 8 steps, order normative: welcome → how it works → set your reading time
-/// → add your book (skippable) → length → shielded apps → permissions → trial. **Only the five setup
-/// steps carry the numbered dots** (alarm·add·length·apps·permissions) so setup never feels like
-/// eight. The paywall goes last, so the trial starts against a real book, time and app list.
+/// First-open onboarding — 7 steps, order normative: welcome → how it works → set your reading time
+/// (time + length + nights, on the sundial) → add your book (skippable) → shielded apps →
+/// permissions → trial. **Only the four setup steps carry the numbered dots** (alarm·add·apps·
+/// permissions) so setup never feels long. The paywall goes last, so the trial starts against a real
+/// book, time and app list.
 struct OnboardingView: View {
     var onComplete: () -> Void
 
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
 
-    enum Step: Int, CaseIterable { case welcome, how, alarm, addBook, length, apps, permissions, paywall }
+    enum Step: Int, CaseIterable { case welcome, how, alarm, addBook, apps, permissions, paywall }
     @State private var step: Step = {
         #if DEBUG
         if let v = ProcessInfo.processInfo.environment["BOOKGATE_ONB_STEP"], let i = Int(v),
@@ -25,8 +26,8 @@ struct OnboardingView: View {
     /// Starts at the bright 16:00 so the strip never flashes dark while transitioning into the step.
     @State private var alarmSkyMin = 960
 
-    /// The five setup steps that carry dots.
-    private static let dotted: [Step] = [.alarm, .addBook, .length, .apps, .permissions]
+    /// The four setup steps that carry dots.
+    private static let dotted: [Step] = [.alarm, .addBook, .apps, .permissions]
     private var dotIndex: Int? { Self.dotted.firstIndex(of: step) }
 
     /// Step crossfade duration. Entering the alarm step is **instant** — crossfading it would leave
@@ -81,7 +82,6 @@ struct OnboardingView: View {
                     case .how:         HowItWorksStep(next: next)
                     case .alarm:       AlarmSetupStep(next: next, skyMin: $alarmSkyMin)
                     case .addBook:     AddBookStep(next: next)
-                    case .length:      LengthStep(next: next)
                     case .apps:        AppsStep(next: next)
                     case .permissions: PermissionsStep(next: next)
                     case .paywall:     PaywallView(onSubscribed: finish)

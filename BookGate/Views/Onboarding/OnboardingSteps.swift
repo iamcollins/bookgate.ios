@@ -386,71 +386,6 @@ struct AddBookStep: View {
     }
 }
 
-// MARK: 4 — Length (5a)
-
-struct LengthStep: View {
-    var next: () -> Void
-    @Environment(AppServices.self) private var services
-    @Environment(\.bgPalette) private var palette
-
-    private let rows: [(Int, String)] = [
-        (5, "MINUTES"), (10, "MINUTES"), (15, "MINUTES"), (20, "MINUTES"),
-        (30, "MINUTES"), (45, "MINUTES"), (60, "— for the deep end"),
-    ]
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Spacer().frame(height: 6)
-            Text("How long, to start?")
-                .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero)).multilineTextAlignment(.center)
-            Text("Pick the length you'd never talk yourself out of.")
-                .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).multilineTextAlignment(.center)
-
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 8) {
-                    ForEach(rows, id: \.0) { row(minutes: $0.0, suffix: $0.1) }
-                }
-            }
-
-            growsNote
-            Button("Continue") { next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-        }
-        .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 40)
-    }
-
-    private func row(minutes: Int, suffix: String) -> some View {
-        let isOn = minutes == services.settings.defaultLength
-        let big = minutes == 60 ? "1 hour" : "\(minutes)"
-        return Button { services.settings.defaultLength = minutes } label: {
-            HStack(spacing: 8) {
-                Text(big).font(BGFont.serif(20, .medium)).foregroundStyle(isOn ? palette.actionText : palette.ink(.hero))
-                Text(minutes == 60 ? suffix : suffix.lowercased())
-                    .font(BGFont.ui(11, .semibold)).tracking(0.8)
-                    .foregroundStyle(isOn ? palette.actionText.opacity(0.75) : palette.ink(.secondary))
-                Spacer()
-                if minutes == 5 {
-                    Text("RECOMMENDED").font(BGFont.ui(9.5, .bold)).tracking(0.6)
-                        .foregroundStyle(isOn ? palette.actionText : palette.brassValue)
-                }
-            }
-            .padding(.horizontal, 16).frame(height: 52).frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isOn ? AnyShapeStyle(palette.brassObject) : AnyShapeStyle(Color.clear))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(isOn ? Color.clear : palette.hairline, lineWidth: 1)))
-        }.buttonStyle(.plain)
-    }
-
-    private var growsNote: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("It grows with you").sectionLabel()
-            Text("Read your minimum a week running and BookGate offers you the next step up. Only ever one step, only ever an offer.")
-                .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14).glass(.quiet, cornerRadius: 16)
-    }
-}
-
 // MARK: 5 — Shielded apps (8d)
 
 struct AppsStep: View {
@@ -459,15 +394,19 @@ struct AppsStep: View {
     @Environment(\.bgPalette) private var palette
     @State private var showPicker = false
 
+    private var alarmTime: String { services.store.schedule(for: nil)?.timeLabel ?? "9:00 PM" }
+
     var body: some View {
         @Bindable var shield = services.shield
         return VStack(spacing: 16) {
             Spacer().frame(height: 6)
-            Text("Which apps usually win at 9pm?")
-                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero))
+            Text("Which apps usually win at \(alarmTime)?")
+                .font(BGFont.serifDynamic(27, .medium, relativeTo: .title))
+                .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             Text("They'll be held back while you read. Nothing is deleted, nothing is reported.")
-                .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).multilineTextAlignment(.center)
+                .font(BGFont.serifItalicDynamic(15, .regular, relativeTo: .callout))
+                .foregroundStyle(palette.ink(.body)).multilineTextAlignment(.center)
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("By category").sectionLabel()
@@ -517,14 +456,17 @@ struct PermissionsStep: View {
     @State private var screenTimeGranted = false
     @State private var micGranted = false
 
+    private var alarmTime: String { services.store.schedule(for: nil)?.timeLabel ?? "9:00 PM" }
+
     var body: some View {
         VStack(spacing: 16) {
             Spacer().frame(height: 6)
             Text("Four permissions, four reasons.")
-                .font(BGFont.serif(27, .medium)).foregroundStyle(palette.ink(.hero))
+                .font(BGFont.serifDynamic(27, .medium, relativeTo: .title))
+                .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             VStack(spacing: 11) {
-                permRow("alarm.fill", "Alarms", "So 9pm actually reaches you, even on silent.", nil, alarmGranted) {
+                permRow("alarm.fill", "Alarms", "So \(alarmTime) actually reaches you, even on silent.", nil, alarmGranted) {
                     Task { alarmGranted = await services.scheduler.requestAuthorization() }
                 }
                 // Deliberate deviation from the design's "Nothing is saved or sent": the nightly
