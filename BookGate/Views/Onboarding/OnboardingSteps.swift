@@ -195,7 +195,8 @@ struct HowItWorksStep: View {
     /// **one at a time** — each does two breaths (scale + a subtle brass glow), then the next takes
     /// over, looping forever down the timeline. Frozen under Reduce Motion.
     private func node(_ symbol: String, filled: Bool, index: Int) -> some View {
-        Circle()
+        let rm = reduceMotion   // capture locally so the @Sendable keyframe closures don't touch the actor
+        return Circle()
             .fill(Color(hex: 0xE9B872, opacity: filled ? 0.16 : 0.0))
             .overlay(Circle().strokeBorder(Color(hex: 0xE9B872, opacity: 0.35), lineWidth: 1.5))
             .frame(width: 52, height: 52)
@@ -205,15 +206,15 @@ struct HowItWorksStep: View {
                     .fill(RadialGradient(colors: [Color(hex: 0xF0C68F), .clear],
                                          center: .center, startRadius: 0, endRadius: 34))
                     .frame(width: 66, height: 66).blur(radius: 9)
-                    .keyframeAnimator(initialValue: 0.0, repeating: !reduceMotion) { view, p in
-                        view.opacity(reduceMotion ? 0 : 0.55 * p).scaleEffect(0.8 + 0.4 * p)
+                    .keyframeAnimator(initialValue: 0.0, repeating: !rm) { view, p in
+                        view.opacity(rm ? 0 : 0.55 * p).scaleEffect(0.8 + 0.4 * p)
                     } keyframes: { _ in breathCycle(index: index) }
             }
             .overlay {
                 Image(systemName: symbol).font(.system(size: 21, weight: .regular))
                     .foregroundStyle(Color(hex: 0xE9B872))
-                    .keyframeAnimator(initialValue: 0.0, repeating: !reduceMotion) { view, p in
-                        view.scaleEffect(reduceMotion ? 1 : 1 + 0.10 * p)
+                    .keyframeAnimator(initialValue: 0.0, repeating: !rm) { view, p in
+                        view.scaleEffect(rm ? 1 : 1 + 0.10 * p)
                     } keyframes: { _ in breathCycle(index: index) }
             }
     }
