@@ -10,6 +10,8 @@ struct ReadingSkyStage: View, Animatable {
     /// Minute-of-day (as a Double so SwiftUI can interpolate it smoothly during the load auto-rise
     /// and between scrub steps). Drives darkness, moon altitude, glow, stars.
     var minute: Double
+    /// When false, the sky is drawn without the moon (used where another object is the hero).
+    var showMoon: Bool = true
 
     // Interpolate `minute` frame-by-frame under `withAnimation` — the smooth rise, done the SwiftUI way.
     var animatableData: Double {
@@ -52,10 +54,12 @@ struct ReadingSkyStage: View, Animatable {
                 StarField(nightness: n, size: size)
 
                 // 4 — the moon: the only celestial body, rising with nightness
-                Moon(nightness: n, reduceMotion: reduceMotion)
-                    .opacity(moonReveal)
-                    .position(x: size.width * 0.72,
-                              y: size.height * (moonLowY - CGFloat(n) * (moonLowY - moonHighY)))
+                if showMoon {
+                    Moon(nightness: n, reduceMotion: reduceMotion)
+                        .opacity(moonReveal)
+                        .position(x: size.width * 0.72,
+                                  y: size.height * (moonLowY - CGFloat(n) * (moonLowY - moonHighY)))
+                }
             }
             .compositingGroup()
         }

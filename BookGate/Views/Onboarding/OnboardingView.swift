@@ -45,13 +45,36 @@ struct OnboardingView: View {
                 // the sky's top colour so the two meet seamlessly. `alarmSkyMin` is driven by the step
                 // (including its load auto-rise) so this strip tracks the sky at every moment.
                 ReadingSky.top(ReadingSky.nightness(alarmSkyMin)).ignoresSafeArea()
+            } else if step == .addBook {
+                // Add-book carries the same sky, frozen at the chosen time.
+                let mins = services.store.alarms.first(where: { $0.isOn })?.readingMin
+                    ?? services.store.alarms.first?.readingMin ?? 1260
+                ReadingSky.top(ReadingSky.nightness(mins)).ignoresSafeArea()
             } else {
                 BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.18), showGlow: step != .welcome)
             }
             VStack(spacing: 0) {
-                if let dotIndex {
-                    PageDots(count: Self.dotted.count, index: dotIndex).padding(.top, 60)
+                // Nav row: progress dots centred, with back (left) / skip (right) at the same level —
+                // the standard top position, so they never sit low inside a step.
+                ZStack {
+                    if let dotIndex { PageDots(count: Self.dotted.count, index: dotIndex) }
+                    if step == .addBook {
+                        HStack {
+                            Button(action: back) {
+                                Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(palette.ink(.secondary)).frame(width: 44, height: 44)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            Spacer()
+                            Button("Skip") { next() }
+                                .font(BGFont.ui(15, .medium)).foregroundStyle(palette.ink(.secondary))
+                                .frame(height: 44)
+                        }
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 56)
                 Group {
                     switch step {
                     case .welcome:     WelcomeStep(next: next, restore: restore)
@@ -80,6 +103,13 @@ struct OnboardingView: View {
             // alarm step never shows a dark top strip.
             if n == .alarm { alarmSkyMin = 960 }
             step = n
+        }
+    }
+
+    private func back() {
+        if let p = Step(rawValue: step.rawValue - 1) {
+            if p == .alarm { alarmSkyMin = 960 }   // re-entering the sundial replays its rise
+            step = p
         }
     }
     private func restore() {

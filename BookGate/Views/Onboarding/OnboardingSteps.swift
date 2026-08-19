@@ -233,53 +233,79 @@ struct HowItWorksStep: View {
     }
 }
 
-// MARK: 3 — Your first book (8c). Barcode is the design's fast path, but BookGate is on-device with
-// no barcode/ISBN/network, so "Photograph the cover" is the path here (deliberate, per the brief).
+// MARK: 4 — Your first book (8c). Carries the same evening sky as the reading-time step (frozen at the
+// hour they picked), recaps the schedule they just set, then asks for the book. Barcode is the design's
+// fast path, but BookGate is on-device with no barcode/ISBN/network, so "Photograph the cover" leads.
 
 struct AddBookStep: View {
     var next: () -> Void
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var title = ""
     @State private var coverJPEG: Data?
     @State private var coverImage: UIImage?
     @State private var showCapture = false
+    @State private var float = false      // perpetual gentle bob
+    @State private var breathe = false    // the glow, breathing like a lamp
+    @State private var appeared = false   // one-time entrance bloom
+    /// The reading alarm just set, captured on appear (so the recap matches the previous screen).
+    @State private var schedule: Schedule?
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Spacer()
-                Button("Skip") { next() }.font(BGFont.ui(14, .medium)).foregroundStyle(palette.ink(.secondary))
-            }
-            Spacer().frame(height: 2)
-            Text("What are you reading?")
-                .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero)).multilineTextAlignment(.center)
-            Text("Photograph the cover — it's the quickest way in. No barcode, no account.")
-                .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).multilineTextAlignment(.center)
-
-            Button { showCapture = true } label: {
-                Group {
-                    if let coverImage {
-                        Image(uiImage: coverImage).resizable().scaledToFill().frame(width: 128, height: 190).clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 7))
-                    } else {
-                        VStack(spacing: 10) {
-                            Image(systemName: "camera.fill").font(.system(size: 22, weight: .light))
-                                .foregroundStyle(palette.ink(.secondary))
-                            Text("Photograph the cover").font(BGFont.ui(12.5, .medium)).foregroundStyle(palette.ink(.secondary))
-                        }
-                        .frame(width: 128, height: 190)
-                        .background(RoundedRectangle(cornerRadius: 7).strokeBorder(style: StrokeStyle(lineWidth: 1.3, dash: [5,4])).foregroundStyle(palette.hairline))
-                    }
-                }
-            }.buttonStyle(.plain)
-
-            quietRow(icon: "textformat", label: "Type it in myself", field: true)
-
-            Spacer()
-            Button("Continue") { addIfNeeded(); next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+        Group {
+            if let schedule { content(schedule) } else { Color.clear }
         }
-        .padding(.horizontal, 26).padding(.top, 8).padding(.bottom, 40)
+        .onAppear {
+            if schedule == nil { schedule = services.store.alarms.first ?? services.store.primary }
+            float = true
+            breathe = true
+            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
+        }
+    }
+
+    private func content(_ s: Schedule) -> some View {
+        ZStack {
+            // The same evening, moon set aside — the book is the light now.
+            ReadingSkyStage(minute: Double(s.readingMin == 0 ? 1440 : s.readingMin), showMoon: false)
+            VStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    Text("Would you like to add\nyour first book?")
+                        .font(BGFont.serifDynamic(29, .medium, relativeTo: .title))
+                        .foregroundStyle(palette.ink(.hero))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(recap(s))
+                        .font(BGFont.serifItalicDynamic(15, .regular, relativeTo: .callout))
+                        .foregroundStyle(palette.brassValue)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 6)
+                .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+
+                Spacer(minLength: 12)
+
+                Button { showCapture = true } label: { bookHero }.buttonStyle(.plain)
+
+                Text(coverImage == nil ? "Tap to photograph the cover" : "Looks good — tap to retake")
+                    .font(BGFont.aside(13.5)).foregroundStyle(palette.ink(.secondary))
+                    .padding(.top, 22)
+
+                Spacer(minLength: 12)
+
+                TextField("", text: $title,
+                          prompt: Text("or type the title").foregroundStyle(palette.ink(.disabled)))
+                    .font(BGFont.row).foregroundStyle(palette.ink(.hero)).multilineTextAlignment(.center)
+                    .padding(14).frame(maxWidth: 300).glass(.quiet, cornerRadius: 16)
+
+                Spacer().frame(height: 20)
+                Button("Continue") { addIfNeeded(); next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 26)
+            .padding(.top, 20)
+            .padding(.bottom, 34)
+        }
         .fullScreenCover(isPresented: $showCapture) {
             CoverCaptureView { jpeg, image, ocr in
                 coverJPEG = jpeg; coverImage = image
@@ -288,10 +314,68 @@ struct AddBookStep: View {
         }
     }
 
-    @ViewBuilder private func quietRow(icon: String, label: String, field: Bool) -> some View {
-        TextField("", text: $title, prompt: Text("Type the title").foregroundStyle(palette.ink(.disabled)))
-            .font(BGFont.row).foregroundStyle(palette.ink(.hero))
-            .padding(14).glass(.quiet, cornerRadius: 16)
+    /// A cream book (or the photographed cover) with the brass bookmark ribbon, floating over a warm
+    /// glow — the welcome mark, now the tap target for adding the book.
+    private var bookHero: some View {
+        let w: CGFloat = 152, h: CGFloat = 224
+        return ZStack {
+            // The lamp: a warm glow behind the book, breathing slowly.
+            Circle()
+                .fill(RadialGradient(colors: [Color(hex: 0xF0BE78, opacity: 0.34), .clear],
+                                     center: .center, startRadius: 0, endRadius: 150))
+                .frame(width: 330, height: 330).blur(radius: 44)
+                .scaleEffect(reduceMotion ? 1 : (breathe ? 1.08 : 0.94))
+                .opacity(reduceMotion ? 0.32 : (breathe ? 0.44 : 0.24))
+                .animation(reduceMotion ? nil : .easeInOut(duration: 3.8).repeatForever(autoreverses: true), value: breathe)
+                .allowsHitTesting(false)
+            Ellipse().fill(Color.black.opacity(0.5)).frame(width: w * 0.78, height: 20)
+                .blur(radius: 12).offset(y: h / 2 + 22)
+
+            Group {
+                if let coverImage {
+                    Image(uiImage: coverImage).resizable().scaledToFill().frame(width: w, height: h).clipped()
+                } else {
+                    ZStack {
+                        LinearGradient(colors: [Color(hex: 0xE9DCC6), Color(hex: 0xCDBC9F), Color(hex: 0xB8A687)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                        Rectangle().fill(Color(hex: 0x5A4228, opacity: 0.32)).frame(width: 2)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 18)
+                        Image(systemName: "camera.fill").font(.system(size: 25, weight: .light))
+                            .foregroundStyle(Color(hex: 0x5A4228, opacity: reduceMotion ? 0.5 : (breathe ? 0.6 : 0.38)))
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 3.8).repeatForever(autoreverses: true), value: breathe)
+                    }
+                    .frame(width: w, height: h)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.5), lineWidth: 1).blendMode(.plusLighter))
+            .shadow(color: .black.opacity(0.6), radius: 22, x: 0, y: 16)
+
+            BookmarkShape(notch: 0.76)
+                .fill(LinearGradient(stops: [
+                    .init(color: Color(hex: 0xF2CB95), location: 0),
+                    .init(color: Color(hex: 0xD79A56), location: 0.70),
+                    .init(color: Color(hex: 0xC0863F), location: 1.0),
+                ], startPoint: .top, endPoint: .bottom))
+                .frame(width: 26, height: 80)
+                .shadow(color: .black.opacity(0.5), radius: 9, x: 0, y: 8)
+                .offset(x: w / 2 - 30, y: -h / 2 - 8 + 40)
+        }
+        .frame(width: w, height: h)
+        // Perpetual gentle bob.
+        .offset(y: reduceMotion ? 0 : (float ? -8 : 4))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 4.5).repeatForever(autoreverses: true), value: float)
+        // One-time entrance: the book blooms into the light.
+        .scaleEffect(appeared ? 1 : 0.9)
+        .opacity(appeared ? 1 : 0)
+    }
+
+    /// "Every night at 9:00 PM, for 5 minutes." — the schedule just set, in words.
+    private func recap(_ s: Schedule) -> String {
+        let len = services.settings.defaultLength
+        let lenPhrase = len == 60 ? String(localized: "1 hour") : String(localized: "\(len) minutes")
+        return String(localized: "\(s.dayLabel) at \(s.timeLabel), for \(lenPhrase).")
     }
 
     private func addIfNeeded() {
