@@ -82,6 +82,7 @@ final class AppServices {
     func onLaunch() async {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
+        shield.refreshAuthorization()
         async let boot: Void = subscription.bootstrap()
         await scheduler.reconcile(store.alarms)
         await boot
@@ -95,6 +96,7 @@ final class AppServices {
     func onForeground() async {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
+        shield.refreshAuthorization()
         await subscription.refresh()
         session.consumePendingGate()
     }
