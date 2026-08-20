@@ -98,20 +98,24 @@ final class ProgressStore {
     #if DEBUG
     /// Populate a realistic streak + heatmap history for screenshots (BOOKGATE_SEED_PROGRESS).
     /// In-memory only — never saved.
-    func debugSeed(currentStreak cs: Int = 17, bestStreak bs: Int = 31) {
+    /// - Parameter includeToday: when false the streak runs up to *yesterday*, leaving tonight
+    ///   unread — the state Today is designed around (its one primary action). The screenshot
+    ///   harness seeds it that way; a day already ticked off demotes that button.
+    func debugSeed(currentStreak cs: Int = 17, bestStreak bs: Int = 31, includeToday: Bool = true) {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
+        let last = includeToday ? today : cal.date(byAdding: .day, value: -1, to: today) ?? today
         currentStreak = cs
         bestStreak = bs
-        lastReadDay = today
+        lastReadDay = last
         lastElapsed = 15 * 60
         let lengths = [5, 10, 15, 20, 30, 45]
         var map: [Date: Int] = [:]
         for i in 0..<cs {
-            if let d = cal.date(byAdding: .day, value: -i, to: today) { map[d] = lengths[i % lengths.count] }
+            if let d = cal.date(byAdding: .day, value: -i, to: last) { map[d] = lengths[i % lengths.count] }
         }
         for i in cs..<80 where (i * 7) % 11 < 5 {
-            if let d = cal.date(byAdding: .day, value: -i, to: today) { map[d] = lengths[i % lengths.count] }
+            if let d = cal.date(byAdding: .day, value: -i, to: last) { map[d] = lengths[i % lengths.count] }
         }
         nights = map
     }

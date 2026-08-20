@@ -1,24 +1,29 @@
 import SwiftUI
+import StoreKit
+import SubscriptionKit
 
 /// The paywall (screen 8f). No free tier: a 3-day trial, then subscription. The **timeline is
 /// stated before the price** (today / day 2 / day 3), yearly is preselected, the savings badge is
 /// **computed** from real prices, and there is one CTA. Used as onboarding's last step and as the
-/// lapsed hard wall (no dismiss — `onBack` is nil; never shown while an alarm rings).
+/// lapsed hard wall (laid over Today, no dismiss; never shown while an alarm rings).
 ///
-/// NOTE: the trial-timeline wording is **regulated** and the prices are placeholders — both need
-/// legal/store sign-off before shipping (flagged in the handoff's Open items).
+/// All logic lives in SubscriptionKit's `PaywallModel` — what state the screen is in, which plans
+/// exist and in what order, which is selected, whether a trial may be mentioned at all. **Every
+/// word on this screen is BookGate's**, formatted here from the structured facts the model vends
+/// (`Product.SubscriptionPeriod`, `Product.SubscriptionOffer`, a savings percentage), because a
+/// `String(localized:)` inside a package silently returns its key in every non-English locale.
+///
+/// NOTE: the trial-timeline wording is **regulated** — it needs legal/store sign-off before
+/// shipping (flagged in the handoff's Open items). Prices are now always the real storefront ones:
+/// there is no hardcoded fallback, by design.
 struct PaywallView: View {
     /// Called when an entitlement is active (purchase or restore).
     var onSubscribed: () -> Void
 
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
-    @State private var selected: String?
+    @State private var model: PaywallModel?
     @State private var message: String?
-
-    private var sub: SubscriptionStore { services.subscription }
-    private var plans: [SubscriptionStore.PlanDisplay] { sub.plans }
-    private var selectedPlan: SubscriptionStore.PlanDisplay? { plans.first { $0.id == selected } ?? plans.first }
 
     var body: some View {
         ZStack {
@@ -35,7 +40,7 @@ struct PaywallView: View {
                         .multilineTextAlignment(.center)
 
                     timeline
-                    planCards
+                    plans
                     cta
 
                     if let message {
@@ -48,10 +53,12 @@ struct PaywallView: View {
             }
         }
         .task {
-            if sub.plans.isEmpty { await sub.bootstrap() }
-            selected = plans.first(where: { $0.id == SubscriptionStore.yearlyID })?.id ?? plans.first?.id
+            if model == nil { model = PaywallModel(store: services.subscription) }
+            await model?.load()
         }
-        .onChange(of: sub.isSubscribed) { _, now in if now { onSubscribed() } }
+        .onChange(of: services.subscription.entitlement) { _, now in
+            if now == .entitled { onSubscribed() }
+        }
     }
 
     // MARK: Trial timeline (before the price)
@@ -78,50 +85,86 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: Plan cards
+    // MARK: Plans
 
-    private var planCards: some View {
-        VStack(spacing: 12) {
-            ForEach(plans) { plan in planCard(plan) }
+    /// Prices are never shown before StoreKit resolves them — a placeholder card holds the layout
+    /// instead. A hardcoded fallback would quote dollars to a reader in another storefront.
+    @ViewBuilder
+    private var plans: some View {
+        switch model?.state ?? .idle {
+        case .idle, .loading:
+            VStack(spacing: 12) { placeholderCard; placeholderCard }
+        case .failed:
+            unavailableNotice
+        case .ready:
+            VStack(spacing: 12) {
+                ForEach(model?.plans ?? []) { plan in planCard(plan) }
+            }
         }
     }
 
-    private func planCard(_ plan: SubscriptionStore.PlanDisplay) -> some View {
-        let isOn = plan.id == (selected ?? selectedPlan?.id)
-        let isYearly = plan.id == SubscriptionStore.yearlyID
-        return Button { selected = plan.id } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 8) {
-                        Text(plan.name).font(BGFont.ui(16, .semibold)).foregroundStyle(palette.ink(.hero))
-                        if isYearly, let pct = sub.yearlySavingsPercent {
-                            badge("SAVE \(pct)%")
-                        }
-                    }
-                    Text("\(plan.price) / \(plan.period)")
-                        .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+    private func planCard(_ plan: PaywallModel.PlanDisplay) -> some View {
+        let isOn = plan.id == model?.selectedPlanID
+        return Button { model?.selectedPlanID = plan.id } label: {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(plan.displayName).font(BGFont.ui(16, .semibold)).foregroundStyle(palette.ink(.hero))
+                    Text(billingLine(plan)).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
                 }
-                Spacer()
-                if isYearly { Text("Recommended").sectionLabel(color: palette.ink(.secondary)) }
-                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20)).foregroundStyle(isOn ? palette.brassValue : palette.ink(.disabled))
+                Spacer(minLength: 0)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(unitPrice(plan)).font(BGFont.serif(26, .light)).foregroundStyle(palette.brassValue)
+                    if let caption = unitCaption(plan) {
+                        Text(caption).font(BGFont.ui(10.5)).foregroundStyle(palette.ink(.secondary))
+                    }
+                }
             }
             .padding(16)
             .frame(maxWidth: .infinity)
             .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(palette.glassCard)
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(isOn ? palette.brassLabel : palette.glassBorder, lineWidth: isOn ? 1.6 : 1))
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(isOn ? palette.brassLabel : palette.glassBorder, lineWidth: isOn ? 1.5 : 1))
+            }
+            // The badge sits on the card's edge, as in the design — computed from the real
+            // prices, never hardcoded.
+            .overlay(alignment: .topLeading) {
+                if let pct = plan.savingsPercentVsMonthly {
+                    savingsBadge(pct).offset(x: 16, y: -9)
+                }
             }
         }
         .buttonStyle(.plain)
     }
 
-    private func badge(_ text: String) -> some View {
-        Text(text).font(BGFont.ui(9.5, .bold)).tracking(0.6)
+    private var placeholderCard: some View {
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(palette.glassCard)
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(palette.glassBorder, lineWidth: 1))
+            .frame(height: 78)
+    }
+
+    private var unavailableNotice: some View {
+        VStack(spacing: 10) {
+            Text("Prices are unavailable right now.")
+                .font(BGFont.ui(14, .semibold)).foregroundStyle(palette.ink(.strong))
+            Text("Check your connection and try again.")
+                .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+            Button("Try again") { Task { await model?.retry() } }
+                .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
+                .frame(height: 44)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .glass(.card, cornerRadius: 22)
+    }
+
+    private func savingsBadge(_ percent: Int) -> some View {
+        Text("SAVE \(percent)%").font(BGFont.ui(9.5, .bold)).tracking(0.8)
             .foregroundStyle(palette.actionText)
-            .padding(.horizontal, 7).padding(.vertical, 3)
+            .padding(.horizontal, 9).padding(.vertical, 3)
             .background(Capsule().fill(palette.brassObject))
     }
 
@@ -129,15 +172,16 @@ struct PaywallView: View {
 
     private var cta: some View {
         Button { purchase() } label: {
-            if sub.working { ProgressView().tint(palette.actionText) }
+            if model?.isBusy == true { ProgressView().tint(palette.actionText) }
             else { Text(ctaLabel) }
         }
         .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-        .disabled(sub.working || selectedPlan == nil)
+        .disabled(!(model?.canPurchase ?? false))
     }
 
     private var ctaLabel: String {
-        (selectedPlan?.trial != nil) ? String(localized: "Start my 3 free days") : String(localized: "Subscribe")
+        guard let span = model?.selectedPlan.flatMap(freeTrialSpan) else { return String(localized: "Subscribe") }
+        return String(localized: "Start my \(span)", comment: "CTA, e.g. 'Start my 3 free days'")
     }
 
     private var footer: some View {
@@ -146,43 +190,101 @@ struct PaywallView: View {
                 .multilineTextAlignment(.center)
             HStack(spacing: 18) {
                 Button("Restore") { restore() }.font(BGFont.ui(12, .medium)).foregroundStyle(palette.brassValue)
-                Link("Terms", destination: Legal.termsURL).font(BGFont.ui(12, .medium)).tint(palette.ink(.secondary))
-                Link("Privacy", destination: Legal.privacyURL).font(BGFont.ui(12, .medium)).tint(palette.ink(.secondary))
+                Link("Terms", destination: model?.termsURL ?? Legal.termsURL)
+                    .font(BGFont.ui(12, .medium)).tint(palette.ink(.secondary))
+                Link("Privacy", destination: model?.privacyURL ?? Legal.privacyURL)
+                    .font(BGFont.ui(12, .medium)).tint(palette.ink(.secondary))
             }
         }
         .padding(.top, 6)
     }
 
     private var renewalNote: String {
-        guard let plan = selectedPlan else { return "" }
-        if plan.trial != nil {
-            return String(localized: "Then \(plan.price) a \(plan.period). Cancel in Settings any time.")
+        guard let plan = model?.selectedPlan, let period = periodNoun(plan.period) else { return "" }
+        if freeTrialSpan(plan) != nil {
+            return String(localized: "Then \(plan.displayPrice) a \(period). Cancel in Settings any time.")
         }
-        return String(localized: "\(plan.price) a \(plan.period). Cancel in Settings any time.")
+        return String(localized: "\(plan.displayPrice) a \(period). Cancel in Settings any time.")
+    }
+
+    // MARK: Copy built from the model's facts
+    //
+    // Every string below is BookGate's, formatted from `Product.SubscriptionPeriod` /
+    // `Product.SubscriptionOffer`. Nothing here may move into the package: a localized string
+    // resolved against a package bundle silently returns its key.
+
+    /// "€29.99 a year · €2.50 a month" for a yearly plan; "Billed every month" otherwise.
+    private func billingLine(_ plan: PaywallModel.PlanDisplay) -> String {
+        if let perMonth = plan.pricePerMonth, let period = periodNoun(plan.period) {
+            return String(localized: "\(plan.displayPrice) a \(period) · \(perMonth) a month")
+        }
+        guard let period = periodNoun(plan.period) else { return plan.displayPrice }
+        return String(localized: "Billed every \(period)")
+    }
+
+    /// The big figure: a yearly plan is quoted per month so the two cards compare honestly.
+    private func unitPrice(_ plan: PaywallModel.PlanDisplay) -> String {
+        plan.pricePerMonth ?? plan.displayPrice
+    }
+
+    private func unitCaption(_ plan: PaywallModel.PlanDisplay) -> String? {
+        if plan.pricePerMonth != nil { return String(localized: "per month") }
+        guard let period = periodNoun(plan.period) else { return nil }
+        return String(localized: "per \(period)")
+    }
+
+    /// "3 days free"-style span for the CTA, or nil when the user is not eligible for a *free*
+    /// intro offer. `introOffer` is already nil for an ineligible user — promising a trial that
+    /// would charge immediately is a misleading subscription presentation.
+    private func freeTrialSpan(_ plan: PaywallModel.PlanDisplay) -> String? {
+        guard let offer = plan.introOffer, offer.paymentMode == .freeTrial else { return nil }
+        let n = offer.period.value
+        switch offer.period.unit {
+        case .day:   return String(localized: "\(n) free days")
+        case .week:  return String(localized: "\(n) free weeks")
+        case .month: return String(localized: "\(n) free months")
+        case .year:  return String(localized: "\(n) free years")
+        @unknown default: return nil
+        }
+    }
+
+    /// "month" / "year", for "a year" and "per month" phrasing. Nil for a non-renewing product.
+    private func periodNoun(_ period: Product.SubscriptionPeriod?) -> String? {
+        guard let period else { return nil }
+        switch period.unit {
+        case .day:   return String(localized: "day")
+        case .week:  return String(localized: "week")
+        case .month: return String(localized: "month")
+        case .year:  return String(localized: "year")
+        @unknown default: return nil
+        }
     }
 
     // MARK: Actions
 
     private func purchase() {
-        guard let plan = selectedPlan else { return }
+        guard let model else { return }
         Task {
-            let outcome = await sub.purchase(plan)
-            switch outcome {
-            case .success: onSubscribed()
-            case .cancelled: break
-            case .pending: message = String(localized: "Waiting for approval…")
-            case .failed: message = String(localized: "Something went wrong. Please try again.")
+            switch await model.purchaseSelected() {
+            case .success:   onSubscribed()
+            case .cancelled: break                       // user backed out — say nothing
+            case .pending:   message = String(localized: "Waiting for approval…")
+            case .failed(let error):
+                // Log the detail; show our own words. StoreKit's error text is not ours.
+                print("[paywall] purchase failed: \(error)")
+                message = String(localized: "Something went wrong. Please try again.")
             }
         }
     }
 
     private func restore() {
+        guard let model else { return }
         Task {
-            let outcome = await sub.restore()
-            switch outcome {
-            case .restored: onSubscribed()
+            switch await model.restore() {
+            case .restored:     onSubscribed()
             case .nothingFound: message = String(localized: "No purchase to restore.")
-            case .failed: message = String(localized: "Couldn't restore. Please try again.")
+            case .cancelled:    break                    // backed out of sign-in — say nothing
+            case .failed:       message = String(localized: "Couldn't restore. Please try again.")
             }
         }
     }

@@ -1,0 +1,24 @@
+{
+  "originHash" : "30a48fea72a4e0ec69281e1aa50a71f370a1badb353b038b6977ae1f1f710a48",
+  "pins" : [
+    {
+      "identity" : "shotkit-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:iamcollins/shotkit-ios.git",
+      "state" : {
+        "revision" : "74db24ff5dc224527dfa306cf70a5bd6ce67bebc",
+        "version" : "0.1.1"
+      }
+    },
+    {
+      "identity" : "subscriptionkit-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "git@github.com:iamcollins/subscriptionkit-ios.git",
+      "state" : {
+        "revision" : "b40e17ef23a1569261a976e99379fe135da33543",
+        "version" : "0.1.3"
+      }
+    }
+  ],
+  "version" : 3
+}

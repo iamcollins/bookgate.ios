@@ -13,13 +13,21 @@ struct OnboardingView: View {
     @Environment(\.bgPalette) private var palette
 
     enum Step: Int, CaseIterable { case welcome, how, alarm, addBook, apps, permissions, paywall }
-    @State private var step: Step = {
+    @State private var step: Step
+
+    /// `initialStep` is for the screenshot harness, which captures several steps in one process.
+    init(initialStep: Step? = nil, onComplete: @escaping () -> Void) {
+        self.onComplete = onComplete
+        _step = State(initialValue: initialStep ?? Self.defaultStep)
+    }
+
+    private static var defaultStep: Step {
         #if DEBUG
         if let v = ProcessInfo.processInfo.environment["BOOKGATE_ONB_STEP"], let i = Int(v),
            let s = Step(rawValue: i) { return s }
         #endif
         return .welcome
-    }()
+    }
 
     /// The minute the alarm step's sky is currently showing (driven by the step, including its load
     /// auto-rise) so the strip behind the page dots matches the sky's top colour at every moment.

@@ -1,0 +1,23 @@
+{
+  "_comment": "App Store frame copy. `frames` sets the upload order and which captured screen each wraps (sources are NN_<Shot case>.png; the NN follows the order of `Shot` in BookGate/Shots/ShotCatalog.swift). A span in *asterisks* renders in brass — mark the phrase carrying the benefit, not a fixed word, so each language accents what matters in that language.",
+  "_placeholder_copy": "PLACEHOLDER: replace once the ASO keyword analysis lands.",
+  "_excluded_for_now": "07_gate is captured but not uploaded until a stand-in photo exists at Scripts/shot-assets/gate.jpg (the Simulator has no camera, so the frame is black). 10_paywall is captured but not uploaded until StoreKit resolves real prices — outside Xcode's Run action it correctly shows its 'prices unavailable' state.",
+  "frames": [
+    { "slug": "today",    "source": "02_today" },
+    { "slug": "sundial",  "source": "01_sundial" },
+    { "slug": "session",  "source": "08_session" },
+    { "slug": "takeaway", "source": "05_takeaways" },
+    { "slug": "complete", "source": "09_complete" },
+    { "slug": "progress", "source": "06_progress" }
+  ],
+  "captions": {
+    "en": [
+      ["An alarm for *the book* you're reading", "One time, every night. Tonight at 9:00."],
+      ["Pick the hour you *wind down*", "Swipe the sky. The alarm follows."],
+      ["Your apps *stay shut* while you read", "Twenty quiet minutes, then everything comes back."],
+      ["One thought, *in your own voice*", "Thirty seconds after reading. Kept on your phone."],
+      ["The night closes when *you* close it", "No pages counted. No streak nagging."],
+      ["Nights read, *not pages counted*", "A year of reading, at a glance."]
+    ]
+  }
+}

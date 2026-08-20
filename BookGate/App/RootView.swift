@@ -1,4 +1,5 @@
 import SwiftUI
+import SubscriptionKitUI
 
 /// Top surface. Gates onboarding, hosts the tab shell, overlays the night flow (always dark) and
 /// the hard paywall, applies the theme, and drives the app lifecycle.
@@ -24,16 +25,17 @@ struct RootView: View {
 
     private var mainShell: some View {
         ZStack {
+            // Hard paywall: laid over Today when the trial has lapsed / no entitlement — but never
+            // while an alarm rings or a session runs, and with no way to dismiss. `subscriptionWall`
+            // (SubscriptionKit) owns the rule that a still-`unknown` entitlement is NOT walled, so a
+            // paying subscriber never meets the wall on a slow launch.
             MainTabView()
                 .themedRoot(services.settings.theme)
-
-            // Hard paywall: over Today when the trial has lapsed / no entitlement — but never while
-            // an alarm rings or a session runs, and with no way to dismiss (onBack: nil).
-            if services.subscriptionResolved && !services.isSubscribed && services.session.phase == .idle {
-                PaywallView(onSubscribed: {})
-                    .transition(.opacity)
-                    .zIndex(1)
-            }
+                .subscriptionWall(store: services.subscription,
+                                  suppressedWhile: services.session.phase != .idle) {
+                    PaywallView(onSubscribed: {})
+                        .transition(.opacity)
+                }
 
             // The night flow takes over the whole screen (always dark) whenever it is running.
             if services.session.phase != .idle {
@@ -44,6 +46,6 @@ struct RootView: View {
         }
         .environment(services)
         .animation(.easeInOut(duration: 0.4), value: services.session.phase)
-        .animation(.easeInOut(duration: 0.3), value: services.isSubscribed)
+        .animation(.easeInOut(duration: 0.3), value: services.subscription.entitlement)
     }
 }

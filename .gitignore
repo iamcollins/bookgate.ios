@@ -18,3 +18,5 @@ DerivedData/
 
 # Local tooling
 .claude/
+build-shots/
+Screenshots/

@@ -27,7 +27,15 @@ enum BGTab: Int, CaseIterable, Identifiable {
 struct MainTabView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
-    @State private var tab: BGTab = {
+    @State private var tab: BGTab
+
+    /// `initialTab` is for the screenshot harness, which mounts one shell per tab in a single
+    /// process; the app itself always opens on Today (or `BOOKGATE_TAB` while debugging).
+    init(initialTab: BGTab? = nil) {
+        _tab = State(initialValue: initialTab ?? Self.defaultTab)
+    }
+
+    private static var defaultTab: BGTab {
         #if DEBUG
         switch ProcessInfo.processInfo.environment["BOOKGATE_TAB"] {
         case "library": return .library
@@ -38,7 +46,7 @@ struct MainTabView: View {
         #else
         return .today
         #endif
-    }()
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {

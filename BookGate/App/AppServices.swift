@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import SubscriptionKit
 
 /// The composition root: the single owner of every app-lifetime store and service, so the alarm /
 /// session flow can drive the UI from outside any screen. Constructor-injected, `@Observable`.
@@ -25,9 +26,11 @@ final class AppServices {
     /// Live camera authorization, mirrored so views don't each poll AVFoundation.
     private(set) var cameraStatus: AVAuthorizationStatus = CameraAccess.status
 
-    /// Set once resolved, so the paywall can decide without waiting on a product fetch.
-    var subscriptionResolved: Bool { subscription.hasResolved }
-    var isSubscribed: Bool { subscription.isSubscribed }
+    /// Set once entitlement has resolved, so nothing decides while the answer is still
+    /// `.unknown`. Prefer `subscription.entitlement` at a decision point: a Bool collapses
+    /// "still checking" into "not entitled" and walls a paying subscriber on a slow launch.
+    var subscriptionResolved: Bool { subscription.hasResolvedEntitlement }
+    var isSubscribed: Bool { subscription.isEntitled }
 
     // MARK: Seams for later coordinators
 
@@ -44,7 +47,7 @@ final class AppServices {
         takeaways = TakeawayStore.load()
         settings = ReadingSettings.load()
         scheduler = AlarmScheduler()
-        subscription = SubscriptionStore()
+        subscription = SubscriptionStore(config: AppSubscription.config)
         shield = ShieldManager()   // no-ops (shield OFF) until the family-controls entitlement lands
 
         let bookStore = books
@@ -83,7 +86,7 @@ final class AppServices {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
-        async let boot: Void = subscription.bootstrap()
+        async let boot: Void = subscription.activate()
         await scheduler.reconcile(store.alarms)
         await boot
         session.consumePendingGate()       // route straight into the reading gate if tapped
@@ -97,7 +100,7 @@ final class AppServices {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
-        await subscription.refresh()
+        _ = await subscription.refreshEntitlement()
         session.consumePendingGate()
     }
 
