@@ -96,7 +96,7 @@ struct BGTabBar: View {
 
             // Home indicator.
             Capsule()
-                .fill(Color(hex: 0xF7EFE4, opacity: 0.28))
+                .fill(palette.homeIndicator)
                 .frame(width: 130, height: 5)
         }
         .padding(.bottom, 4)
@@ -104,7 +104,9 @@ struct BGTabBar: View {
 
     private func tabButton(_ tab: BGTab) -> some View {
         let active = tab == selection
-        let tint = active ? palette.brassLabel : Color(hex: 0xF7EFE4, opacity: 0.4)
+        // Both from the palette: this bar is themed, and the dark palette's cream at .4 over the
+        // light bar's near-white material left Library, Takeaways and Progress invisible.
+        let tint = active ? palette.brassLabel : palette.tabInactive
         return Button {
             selection = tab
         } label: {

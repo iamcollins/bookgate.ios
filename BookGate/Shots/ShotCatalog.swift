@@ -100,19 +100,27 @@ struct ShotHost: View {
         .task { ShotFixtures.stage(screen) }
     }
 
+    /// The theme the run is capturing. Pinning `.dark` here made `APPEARANCE=light` a lie: every
+    /// themed screen came back in dark chrome, so a light-only defect could not show up in a
+    /// light pass. One did — the tab bar's inactive items were the dark palette's cream, which
+    /// vanished against the light bar.
+    private var theme: ThemePreference {
+        ShotMode.appearance == .dark ? .dark : .light
+    }
+
     /// Everything outside onboarding and the night flow. Tab screens go through the real shell so
     /// the floating tab bar is in shot; the rest are mounted the way the app presents them.
     @ViewBuilder
     private var tabsAndSheets: some View {
         switch screen {
-        case .today:         MainTabView(initialTab: .today).themedRoot(.dark)
-        case .library:       MainTabView(initialTab: .library).themedRoot(.dark)
-        case .takeaways:     MainTabView(initialTab: .takeaways).themedRoot(.dark)
-        case .progress:      MainTabView(initialTab: .progress).themedRoot(.dark)
-        case .progressYear:  ProgressScreen(initialShowYear: true).themedRoot(.dark)
-        case .tonightLength: TonightLengthSheet().themedRoot(.dark)
-        case .settings:      SettingsView().themedRoot(.dark)
-        case .addBook:       AddBookView().themedRoot(.dark)
+        case .today:         MainTabView(initialTab: .today).themedRoot(theme)
+        case .library:       MainTabView(initialTab: .library).themedRoot(theme)
+        case .takeaways:     MainTabView(initialTab: .takeaways).themedRoot(theme)
+        case .progress:      MainTabView(initialTab: .progress).themedRoot(theme)
+        case .progressYear:  ProgressScreen(initialShowYear: true).themedRoot(theme)
+        case .tonightLength: TonightLengthSheet().themedRoot(theme)
+        case .settings:      SettingsView().themedRoot(theme)
+        case .addBook:       AddBookView().themedRoot(theme)
         case .bookDetails:   bookDetails
         // Onboarding's last step, but mounted on its own: the step chrome (dots, Back) is not
         // what the App Store's subscription review wants to see.
@@ -124,7 +132,7 @@ struct ShotHost: View {
     @ViewBuilder
     private var bookDetails: some View {
         if let book = services.books.currentReading {
-            BookDetailsView(bookID: book.id).themedRoot(.dark)
+            BookDetailsView(bookID: book.id).themedRoot(theme)
         }
     }
 }

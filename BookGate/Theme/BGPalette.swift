@@ -47,6 +47,12 @@ struct BGPalette: Equatable {
     let hairline: Color
     let recess: Color             // empty heatmap cells, placeholder stripes
 
+    // Tab bar chrome. Not on the ink ladder: the handoff sets the inactive tab at cream .4 on
+    // dark but ink .58 on light — paper needs far more weight than the ladder's flat +0.08 bump
+    // gives, because the bar's own material is nearly the page colour.
+    let tabInactive: Color        // inactive tab icon + label
+    let homeIndicator: Color
+
     // Shadows (colour only; radius/offset live on the modifiers)
     let shadowColor: Color
 
@@ -109,6 +115,8 @@ struct BGPalette: Equatable {
         glassInner: Color(hex: 0xFFF0DC, opacity: 0.20),
         hairline: Color(hex: 0xFFE8CC, opacity: 0.12),
         recess: Color(hex: 0xFFF0DE, opacity: 0.04),
+        tabInactive: Color(hex: 0xF7EFE4, opacity: 0.40),
+        homeIndicator: Color(hex: 0xF7EFE4, opacity: 0.28),
         shadowColor: Color.black,
         heatmapFills: [
             Color(hex: 0xE7AE5C, opacity: 0.35),
@@ -150,6 +158,8 @@ struct BGPalette: Equatable {
         glassInner: Color(hex: 0xFFFFFF, opacity: 0.90),
         hairline: Color(hex: 0x231A12, opacity: 0.10),
         recess: Color(hex: 0x231A12, opacity: 0.05),
+        tabInactive: Color(hex: 0x231A12, opacity: 0.58),
+        homeIndicator: Color(hex: 0x231A12, opacity: 0.30),
         shadowColor: Color(hex: 0x5A3C1E),
         heatmapFills: [
             Color(hex: 0xC98F4A, opacity: 0.38),
