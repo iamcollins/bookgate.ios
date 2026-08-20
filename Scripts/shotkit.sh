@@ -18,7 +18,7 @@ set -euo pipefail
 SCHEME="BookGate"
 BUNDLE_ID="app.bookgate.BookGate"
 APP_NAME="BookGate"                       # PRODUCT_NAME
-EXPECTED=11                               # screens per locale — keep in step with `Shot`
+EXPECTED=23                               # screens per locale — keep in step with `Shot`
 
 # "locale code : region". The code names the output folder and must match a
 # CFBundleLocalizations entry.

@@ -54,6 +54,10 @@ struct PaywallView: View {
         }
         .task {
             if model == nil { model = PaywallModel(store: services.subscription) }
+            // Already entitled when this appears — a restore on a previous launch, or a
+            // subscription bought on another device. `onChange` never fires for a state that was
+            // already true, which left onboarding's last step with no way forward.
+            if services.subscription.entitlement == .entitled { onSubscribed() }
             await model?.load()
         }
         .onChange(of: services.subscription.entitlement) { _, now in

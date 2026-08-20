@@ -9,27 +9,71 @@ import ShotKit
 /// Filenames are `NN_<rawValue>.png`, and `NN` is this order — `Scripts/store_captions.json`
 /// refers to them by that name, so renaming a case renames a source.
 enum Shot: String, ShotScreenCatalog, CaseIterable {
-    case welcome        // onboarding 8a — the opening promise
-    case sundial        // onboarding 8c — set your reading time
-    case today          // 4b — tonight's plan
-    case library        // 7a
-    case bookDetails    // 7b — the takeaway timeline
-    case takeaways      // 7c
-    case progress       // 10a — the month heatmap
-    case gate           // 1g/8e — the nightly camera gate
-    case session        // 4a — the lamp burning down
-    case complete       // 9 — the night's close
-    case paywall        // 8f — required by App Store Connect for subscription review
+    // Onboarding, in its own order
+    case welcome            // 8a — the opening promise
+    case howItWorks         // 8b
+    case sundial            // 8c — set your reading time
+    case addBookStep        // 8d
+    case apps               // 8e — what gets shielded
+    case permissions        // 8f
+    case paywall            // 8g — trial, then subscription
+
+    // The four tabs and what hangs off them
+    case today              // 4b — tonight's plan
+    case tonightLength      // 5c — length, tonight only
+    case settings           // 6a — Settings › Reading
+    case library            // 7a
+    case addBook            // add a book by hand
+    case bookDetails        // 7b — the takeaway timeline
+    case takeaways          // 7c
+    case progress           // 10a — the month heatmap
+    case progressYear       // 10b — the year
+
+    // The night, in the order it happens
+    case ringing            // 3f — the alarm
+    case gate               // 1g/8e — show your book
+    case settle             // 4c — the post-scan beat
+    case session            // 4a — the lamp burning down
+    case complete           // 9 — the night's close
+    case recorder           // the spoken takeaway
+    case stepup             // 5b — a clean week earns a longer session
 
     /// Screens that animate on entry need longer than the default settle: the sundial plays a
-    /// ~2s auto-rise, the session's lamp eases in, and the paywall must wait for StoreKit to
-    /// resolve real prices before it will show any (it shows placeholders until then, by design).
+    /// ~2s auto-rise, the alarm and the lamp ease in, and the paywall waits on StoreKit (which,
+    /// in a `simctl`-driven run, resolves nothing — see Scripts/store_captions.json).
     var extraSettle: Duration {
         switch self {
-        case .sundial:            return .seconds(2)
-        case .paywall:            return .milliseconds(1200)
-        case .session, .complete: return .milliseconds(600)
-        default:                  return .zero
+        case .sundial:                      return .seconds(2)
+        case .paywall:                      return .milliseconds(1200)
+        case .ringing, .session, .complete: return .milliseconds(600)
+        default:                            return .zero
+        }
+    }
+
+    /// The night-flow phase this screen is, if it is one.
+    var nightPhase: SessionCoordinator.Phase? {
+        switch self {
+        case .ringing:  return .ringing(alarmID: nil)
+        case .gate:     return .gate
+        case .settle:   return .settle
+        case .session:  return .session
+        case .complete: return .complete
+        case .recorder: return .takeaway
+        case .stepup:   return .stepup
+        default:        return nil
+        }
+    }
+
+    /// The onboarding step this screen is, if it is one.
+    var onboardingStep: OnboardingView.Step? {
+        switch self {
+        case .welcome:     return .welcome
+        case .howItWorks:  return .how
+        case .sundial:     return .alarm
+        case .addBookStep: return .addBook
+        case .apps:        return .apps
+        case .permissions: return .permissions
+        default:           return nil
         }
     }
 }
@@ -43,20 +87,38 @@ struct ShotHost: View {
 
     var body: some View {
         Group {
-            switch screen {
-            case .welcome:     OnboardingView(initialStep: .welcome, onComplete: {})
-            case .sundial:     OnboardingView(initialStep: .alarm, onComplete: {})
-            case .today:       MainTabView(initialTab: .today).themedRoot(.dark)
-            case .library:     MainTabView(initialTab: .library).themedRoot(.dark)
-            case .takeaways:   MainTabView(initialTab: .takeaways).themedRoot(.dark)
-            case .progress:    MainTabView(initialTab: .progress).themedRoot(.dark)
-            case .bookDetails: bookDetails
-            case .gate, .session, .complete: night
-            case .paywall:     PaywallView(onSubscribed: {}).nightFlow()
+            if let step = screen.onboardingStep {
+                OnboardingView(initialStep: step, onComplete: {})
+            } else if screen.nightPhase != nil {
+                // Renders whichever phase `ShotFixtures.stage` put the coordinator in.
+                NightFlowView()
+            } else {
+                tabsAndSheets
             }
         }
         .environment(services)
         .task { ShotFixtures.stage(screen) }
+    }
+
+    /// Everything outside onboarding and the night flow. Tab screens go through the real shell so
+    /// the floating tab bar is in shot; the rest are mounted the way the app presents them.
+    @ViewBuilder
+    private var tabsAndSheets: some View {
+        switch screen {
+        case .today:         MainTabView(initialTab: .today).themedRoot(.dark)
+        case .library:       MainTabView(initialTab: .library).themedRoot(.dark)
+        case .takeaways:     MainTabView(initialTab: .takeaways).themedRoot(.dark)
+        case .progress:      MainTabView(initialTab: .progress).themedRoot(.dark)
+        case .progressYear:  ProgressScreen(initialShowYear: true).themedRoot(.dark)
+        case .tonightLength: TonightLengthSheet().themedRoot(.dark)
+        case .settings:      SettingsView().themedRoot(.dark)
+        case .addBook:       AddBookView().themedRoot(.dark)
+        case .bookDetails:   bookDetails
+        // Onboarding's last step, but mounted on its own: the step chrome (dots, Back) is not
+        // what the App Store's subscription review wants to see.
+        case .paywall:       PaywallView(onSubscribed: {}).nightFlow()
+        default:             Color.clear     // onboarding and night screens are handled above
+        }
     }
 
     @ViewBuilder
@@ -64,11 +126,6 @@ struct ShotHost: View {
         if let book = services.books.currentReading {
             BookDetailsView(bookID: book.id).themedRoot(.dark)
         }
-    }
-
-    /// The night flow renders whichever phase `ShotFixtures.stage` put the coordinator in.
-    private var night: some View {
-        NightFlowView()
     }
 }
 
@@ -89,12 +146,7 @@ enum ShotFixtures {
     /// Per-screen state that can't be expressed as stored data — which night-flow phase is
     /// running. Called from the host's `.task`, so it lands before the capture settles.
     static func stage(_ screen: Shot) {
-        switch screen {
-        case .gate:     services.session.debugJump(to: .gate)
-        case .session:  services.session.debugJump(to: .session)
-        case .complete: services.session.debugJump(to: .complete)
-        default:        services.session.debugJump(to: .idle)
-        }
+        services.session.debugJump(to: screen.nightPhase ?? .idle)
     }
 
     /// Deterministic on every run: the stores are cleared before they are filled, so a second

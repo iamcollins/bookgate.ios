@@ -7,7 +7,13 @@ struct ProgressScreen: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
     @State private var monthOffset = 0          // 0 = current month; steppers move it
-    @State private var showYear = false
+    @State private var showYear: Bool
+
+    /// `initialShowYear` is for the screenshot harness, which captures the month and the year as
+    /// two screens in one process.
+    init(initialShowYear: Bool = false) {
+        _showYear = State(initialValue: initialShowYear)
+    }
 
     private var progress: ProgressStore { services.progress }
     private let cal = Calendar.current
