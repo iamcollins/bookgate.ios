@@ -29,35 +29,28 @@ struct PaywallView: View {
     /// `PaywallDiagnostics`; remove before the App Store build.
     /// Only the network-bound half is stored; the rest is read live (see `PaywallDiagnostics`).
     @State private var storeEnvironment = ""
+    /// The StoreKit read-out is a support tool, not part of the offer. It now lives one tap inside
+    /// the "prices unavailable" notice — still reachable from a TestFlight build with no logs to
+    /// read, without putting monospaced debug text on the screen that asks for money.
+    @State private var showDiagnostics = false
 
     var body: some View {
         ZStack {
             BGAmbientBackground(center: UnitPoint(x: 0.5, y: 0.12))
-            ScrollView {
-                VStack(spacing: 22) {
-                    Spacer().frame(height: 20)
-                    Bookmark(width: 38, height: 52)
-                    Text("Make reading a daily reality.")
-                        .font(BGFont.serif(31, .medium)).foregroundStyle(palette.ink(.hero))
-                        .multilineTextAlignment(.center)
-                    Text("Your book, your time, your shield — three days on us.")
-                        .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
-                        .multilineTextAlignment(.center)
-
-                    timeline
-                    plans
-                    if (model?.state ?? .idle) != .ready {
-                        diagnosticsPanel
-                    }
-                    cta
-
-                    if let message {
-                        Text(message).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-                    }
-                    footer
+            // This screen must not scroll on a phone it fits on — and must not clip on one it
+            // doesn't. So the page is given a minimum height of exactly the viewport: its spacers
+            // expand to fill a tall screen (nothing to scroll, and `basedOnSize` removes even the
+            // rubber-band bounce), while a short screen lets the content grow past the viewport and
+            // scroll honestly. `ViewThatFits` was tried first and measured a hair short — a custom
+            // font's real line heights are not its reported ideal ones — which clipped the footer
+            // off the bottom of an iPhone SE.
+            GeometryReader { geo in
+                ScrollView {
+                    page(tight: geo.size.height < 700)
+                        .frame(minHeight: geo.size.height, alignment: .top)
+                        .padding(.horizontal, 24)
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 40)
+                .scrollBounceBehavior(.basedOnSize)
             }
         }
         .task {
@@ -74,6 +67,43 @@ struct PaywallView: View {
         }
         .onChange(of: model?.state) { _, _ in
             Task { await refreshDiagnostics() }
+        }
+    }
+
+    /// The page, laid out once. `tight` only changes the breathing room, never the content — a
+    /// small screen shows the same words, closer together.
+    private func page(tight: Bool) -> some View {
+        VStack(spacing: 0) {
+            Spacer().frame(height: tight ? 8 : 16)
+            Bookmark(width: 38, height: 52)
+            Spacer().frame(height: tight ? 14 : 20)
+            Text("Make reading a daily reality.")
+                .font(BGFont.serif(tight ? 28 : 31, .medium)).foregroundStyle(palette.ink(.hero))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer().frame(height: 10)
+            Text("Your book, your time, your shield — three days on us.")
+                .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Only two gaps flex. The offer — timeline then prices — has to read as one block, so
+            // the space a tall phone has spare goes above it and below it, never through it.
+            Spacer(minLength: tight ? 16 : 22)
+            timeline
+            Spacer().frame(height: tight ? 12 : 16)
+            plans
+            Spacer(minLength: tight ? 16 : 22)
+            cta
+
+            if let message {
+                Spacer().frame(height: 10)
+                Text(message).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    .multilineTextAlignment(.center)
+            }
+            Spacer().frame(height: tight ? 10 : 14)
+            footer
+            Spacer().frame(height: tight ? 4 : 10)
         }
     }
 
@@ -96,8 +126,11 @@ struct PaywallView: View {
                 .foregroundStyle(palette.brassValue).frame(width: 22)
             VStack(alignment: .leading, spacing: 2) {
                 Text(day).font(BGFont.ui(13.5, .semibold)).foregroundStyle(palette.ink(.strong))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(text).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
         }
     }
 
@@ -126,6 +159,7 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(plan.displayName).font(BGFont.ui(16, .semibold)).foregroundStyle(palette.ink(.hero))
                     Text(billingLine(plan)).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
                 VStack(alignment: .trailing, spacing: 4) {
@@ -168,9 +202,16 @@ struct PaywallView: View {
                 .font(BGFont.ui(14, .semibold)).foregroundStyle(palette.ink(.strong))
             Text("Check your connection and try again.")
                 .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-            Button("Try again") { Task { await model?.retry(); await refreshDiagnostics() } }
-                .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
-                .frame(height: 44)
+            HStack(spacing: 18) {
+                Button("Try again") { Task { await model?.retry(); await refreshDiagnostics() } }
+                    .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
+                Button(showDiagnostics ? "Hide details" : "Details") {
+                    withAnimation(.easeInOut(duration: 0.2)) { showDiagnostics.toggle() }
+                }
+                .font(BGFont.ui(13, .medium)).foregroundStyle(palette.ink(.secondary))
+            }
+            .frame(height: 44)
+            if showDiagnostics { diagnosticsPanel }
         }
         .frame(maxWidth: .infinity)
         .padding(16)
@@ -231,6 +272,7 @@ struct PaywallView: View {
         VStack(spacing: 10) {
             Text(renewalNote).font(BGFont.ui(11, .regular)).foregroundStyle(palette.ink(.caption))
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 18) {
                 Button("Restore") { restore() }.font(BGFont.ui(12, .medium)).foregroundStyle(palette.brassValue)
                 Link("Terms", destination: model?.termsURL ?? Legal.termsURL)
