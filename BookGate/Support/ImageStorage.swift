@@ -79,4 +79,23 @@ struct ImageStorage {
         guard let cg = ciContext.createCGImage(ci, from: ci.extent) else { return nil }
         return UIImage(cgImage: cg).jpegData(compressionQuality: quality)
     }
+
+    /// Re-encode a photograph down to a stored size, longest side first. A full-resolution still
+    /// off `AVCapturePhotoOutput` is several megabytes; a cover is never drawn larger than a
+    /// screen, and one of these is kept per book forever.
+    static func jpeg(from image: UIImage, maxDimension: CGFloat, quality: CGFloat = 0.9) -> Data? {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > maxDimension else { return image.jpegData(compressionQuality: quality) }
+
+        let scale = maxDimension / longest
+        let target = CGSize(width: (image.size.width * scale).rounded(),
+                            height: (image.size.height * scale).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let resized = UIGraphicsImageRenderer(size: target, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target))
+        }
+        return resized.jpegData(compressionQuality: quality)
+    }
 }
