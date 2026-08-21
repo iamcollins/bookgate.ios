@@ -54,12 +54,15 @@ enum AppSubscription {
     /// TestFlight, sandbox — the real App Store Connect prices win, and this is never compiled into
     /// a Release build. Keep them close to the real ones so the layout is reviewed at the right
     /// widths; the savings badge here is stated, while the shipping one is computed.
+    /// Mirrors the real US storefront prices in App Store Connect ($29.99 / $4.99), so the layout
+    /// is reviewed at the widths it will actually have. 50% is what those two prices work out to
+    /// ($4.99 x 12 = $59.88 against $29.99); the shipping badge computes it rather than stating it.
     private static let previewPlans: [PreviewPlan] = [
         .init(id: yearlyID, displayName: "Yearly", displayPrice: "$29.99",
               pricePerMonth: "$2.50", period: .init(unit: .year, value: 1),
               introOffer: .freeTrial(days: 3), isRecommended: true,
-              savingsPercentVsMonthly: 58),
-        .init(id: monthlyID, displayName: "Monthly", displayPrice: "$5.99",
+              savingsPercentVsMonthly: 50),
+        .init(id: monthlyID, displayName: "Monthly", displayPrice: "$4.99",
               period: .init(unit: .month, value: 1),
               introOffer: .freeTrial(days: 3)),
     ]
