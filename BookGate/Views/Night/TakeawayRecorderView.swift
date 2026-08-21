@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The takeaway recorder (part of screen 9). Idle → recording (live waveform) → review (play, scrub,
 /// re-record, save). Optional every time; skipping never breaks the streak.
@@ -12,6 +13,9 @@ struct TakeawayRecorderView: View {
     @State private var player = AudioPlayer()
     @State private var result: AudioRecorder.Result?
     @State private var micDenied = false
+    /// A stable id for the take being reviewed. It was minted fresh on every tap, so the player
+    /// never recognised the item it was already playing and "Pause" restarted it from zero.
+    @State private var reviewID = UUID()
 
     private var session: SessionCoordinator { services.session }
 
@@ -36,7 +40,21 @@ struct TakeawayRecorderView: View {
             .padding(.top, 60)
             .padding(.bottom, 40)
         }
+        .onChange(of: recorder.isRecording) { _, recording in
+            if !recording { syncStoppedByCap() }
+        }
         .onDisappear { recorder.cancel(); player.stop() }
+    }
+
+    private var remainingToCap: TimeInterval {
+        max(0, AudioRecorder.maxSeconds - recorder.elapsed)
+    }
+
+    /// The recorder stops itself at the cap; follow it into review rather than leaving the screen
+    /// stuck on a "Stop" button that has nothing left to stop.
+    private func syncStoppedByCap() {
+        guard stage == .recording, !recorder.isRecording else { return }
+        stopRecording()
     }
 
     private var prompt: String {
@@ -51,8 +69,16 @@ struct TakeawayRecorderView: View {
         switch stage {
         case .idle:
             if micDenied {
-                Text("Enable the microphone in Settings to record, or skip.")
-                    .font(BGFont.body).foregroundStyle(palette.ink(.secondary)).multilineTextAlignment(.center)
+                VStack(spacing: 10) {
+                    Text("BookGate can't hear the microphone.")
+                        .font(BGFont.body).foregroundStyle(palette.ink(.body))
+                        .multilineTextAlignment(.center)
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        Link("Open Settings", destination: url)
+                            .font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
+                            .frame(height: 44)
+                    }
+                }
             } else {
                 VStack(spacing: 8) {
                     Text("Say it the way you'd say it to a friend.")
@@ -65,11 +91,21 @@ struct TakeawayRecorderView: View {
             }
         case .recording:
             VStack(spacing: 14) {
-                WaveformView(levels: recorder.levels, progress: 1, height: 40)
-                    .frame(height: 40)
+                WaveformView(levels: recorder.levels, progress: 1, height: 44)
+                    .frame(height: 44)
                 Text(timeString(recorder.elapsed))
                     .font(BGFont.mono(15)).foregroundStyle(palette.ink(.body))
+                    .monospacedDigit()
+                // The cap is five minutes and almost nobody will reach it, so it is not stated up
+                // front — it appears only in the last thirty seconds, where it is information
+                // rather than pressure.
+                if remainingToCap <= 30 {
+                    Text("\(Int(remainingToCap))s left")
+                        .font(BGFont.caption).foregroundStyle(palette.ink(.caption))
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeInOut(duration: 0.3), value: remainingToCap <= 30)
         case .review:
             if let result {
                 VStack(spacing: 14) {
@@ -118,14 +154,21 @@ struct TakeawayRecorderView: View {
     }
 
     private func stopRecording() {
-        result = recorder.stop()
+        // Either the user tapped Stop (so `stop()` returns the take) or the recorder already
+        // stopped itself at the cap (so the take is waiting in `lastResult`). Both must reach
+        // review — a recording that ran the full five minutes is the last one to throw away.
+        if let take = recorder.stop() ?? recorder.lastResult {
+            result = take
+            reviewID = UUID()
+        }
         stage = result == nil ? .idle : .review
     }
 
     private func togglePlay() {
         guard let result else { return }
         let url = TakeawayStore.audioDirectory.appendingPathComponent(result.file)
-        let stub = Takeaway(id: UUID(), bookId: nil, date: .now, durationSec: result.duration, file: result.file, waveform: result.waveform)
+        let stub = Takeaway(id: reviewID, bookId: nil, date: .now,
+                            durationSec: result.duration, file: result.file, waveform: result.waveform)
         player.toggle(stub, url: url)
     }
 
@@ -135,6 +178,7 @@ struct TakeawayRecorderView: View {
             try? FileManager.default.removeItem(at: TakeawayStore.audioDirectory.appendingPathComponent(result.file))
         }
         result = nil
+        recorder.cancel()          // clear the last take's levels so the next one starts empty
         stage = .idle
     }
 
