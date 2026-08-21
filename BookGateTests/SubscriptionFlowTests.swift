@@ -35,6 +35,38 @@ final class SubscriptionFlowTests: XCTestCase {
         super.tearDown()
     }
 
+    /// Whether `SKTestSession` is actually intercepting StoreKit in this process. Probed once per
+    /// run and cached, because the probe costs a catalogue fetch.
+    ///
+    /// **Why a probe and not just "did products load".** The original guard skipped when the
+    /// catalogue came back empty. That stopped working the moment the products went live in App
+    /// Store Connect: StoreKit now resolves them from the *real sandbox* App Store, so the
+    /// catalogue is not empty, nothing skips — and then every case that purchases or restores
+    /// raises a real "Sign in to Apple Account" sheet and burns its full timeout. A fifteen-minute
+    /// red suite that proves nothing is worse than an honest skip.
+    ///
+    /// The tell is the storefront: `SKTestSession.storefront` only moves prices when the session is
+    /// in control. If asking for Japan still returns dollars, StoreKit is not listening to us.
+    private func skipUnlessStoreKitIsLocal() async throws {
+        if Self.storeKitIsLocal == nil {
+            let original = session.storefront
+            session.storefront = "JPN"
+            let probe = SubscriptionStore(config: AppSubscription.config)
+            await probe.loadProducts()
+            Self.storeKitIsLocal = !probe.products.isEmpty
+                && probe.products.allSatisfy { $0.displayPrice.contains("¥") }
+            session.storefront = original
+        }
+        guard Self.storeKitIsLocal == true else {
+            throw XCTSkip("""
+                SKTestSession is not intercepting StoreKit in this process, so the products                 resolving here come from the real sandbox App Store. Purchases and restores would                 raise a system sign-in sheet and hang the run rather than test anything.                 Run this suite from Xcode with the BookGate.storekit configuration attached to the                 scheme, or on a device signed into a sandbox account.
+                """)
+        }
+    }
+
+    /// Probed once for the whole suite — the answer cannot change mid-run.
+    private static var storeKitIsLocal: Bool?
+
     /// An activated store, or a skipped test.
     ///
     /// **Every test here goes through this, and that is load-bearing.** When `SKTestSession` does
@@ -48,6 +80,7 @@ final class SubscriptionFlowTests: XCTestCase {
     /// These tests run for real once the products exist in App Store Connect — on device, or in a
     /// simulator signed into a sandbox account.
     private func activatedStoreOrSkip() async throws -> SubscriptionStore {
+        try await skipUnlessStoreKitIsLocal()
         let store = SubscriptionStore(config: AppSubscription.config)
         await store.activate()
         guard case .loaded = store.productLoadState, !store.products.isEmpty else {
@@ -174,6 +207,8 @@ final class SubscriptionFlowTests: XCTestCase {
     }
 
     func testPricesFollowTheStorefront() async throws {
+        // The skip probe restores whatever storefront it found, so set Japan after it has run.
+        try await skipUnlessStoreKitIsLocal()
         session.storefront = "JPN"
         let store = try await activatedStoreOrSkip()
 
