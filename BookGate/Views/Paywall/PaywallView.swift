@@ -20,6 +20,12 @@ struct PaywallView: View {
     /// Called when an entitlement is active (purchase or restore).
     var onSubscribed: () -> Void
 
+    /// A way back out, supplied **only** by onboarding. The hard wall passes nothing, so the
+    /// close button cannot appear there — a lapsed reader is not offered a way to keep using
+    /// a subscription they no longer have, and that is enforced by what the caller hands
+    /// over rather than by a flag this view could get wrong.
+    var onClose: (() -> Void)? = nil
+
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
     @State private var model: PaywallModel?
@@ -44,6 +50,11 @@ struct PaywallView: View {
         guard let lapse else { return false }
         return lapse.reason != .neverSubscribed
     }
+
+    /// The close button needs both: a caller that offered one, and a reader who has never
+    /// subscribed. Someone who reinstalled after lapsing still walks onboarding, and they
+    /// are not a new user — they meet the same offer as they would at the wall.
+    private var showsClose: Bool { onClose != nil && !hasLapsed }
 
     /// Whether a *free trial* is genuinely on the table for the selected plan.
     ///
@@ -87,6 +98,7 @@ struct PaywallView: View {
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
+            if showsClose { closeButton }
         }
         .task {
             if model == nil { model = PaywallModel(store: services.subscription) }
@@ -103,6 +115,22 @@ struct PaywallView: View {
         .onChange(of: model?.state) { _, _ in
             Task { await refreshDiagnostics() }
         }
+    }
+
+    /// Sits where onboarding's back control sits on its other steps, so "leave this step"
+    /// stays in one place across the flow.
+    private var closeButton: some View {
+        Button { onClose?() } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(palette.ink(.secondary))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.leading, 4)
     }
 
     /// The page, laid out once. `tight` only changes the breathing room, never the content — a

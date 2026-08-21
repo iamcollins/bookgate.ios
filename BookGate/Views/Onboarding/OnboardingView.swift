@@ -92,7 +92,9 @@ struct OnboardingView: View {
                     case .addBook:     AddBookStep(next: next)
                     case .apps:        AppsStep(next: next)
                     case .permissions: PermissionsStep(next: next)
-                    case .paywall:     PaywallView(onSubscribed: finish)
+                    // `onClose` is supplied here and nowhere else: this is the only place a
+                    // reader may step back out of the paywall.
+                    case .paywall:     PaywallView(onSubscribed: finish, onClose: back)
                     }
                 }
                 .environment(services)
