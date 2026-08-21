@@ -192,6 +192,9 @@ struct SubscriptionCard: View {
             switch await store.restore() {
             case .restored:     message = String(localized: "Restored. You're all set.")
             case .nothingFound: message = String(localized: "No purchase to restore on this Apple Account.")
+            // "We couldn't tell" is not "you have nothing" — never send a paying
+            // subscriber away believing their purchase is gone.
+            case .uncertain:    message = String(localized: "Couldn't check just now. Try again in a moment.")
             case .cancelled:    break                  // backed out of sign-in — say nothing
             case .failed:       message = String(localized: "Couldn't restore. Please try again.")
             }

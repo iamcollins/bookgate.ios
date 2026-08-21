@@ -481,6 +481,7 @@ struct PaywallView: View {
             switch await model.restore() {
             case .restored:     onSubscribed()
             case .nothingFound: message = String(localized: "No purchase to restore.")
+            case .uncertain:    message = String(localized: "Couldn't check just now. Try again in a moment.")
             case .cancelled:    break                    // backed out of sign-in — say nothing
             case .failed:       message = String(localized: "Couldn't restore. Please try again.")
             }
