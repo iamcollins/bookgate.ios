@@ -7,6 +7,9 @@ struct TakeawaysView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
     @State private var player = AudioPlayer()
+    /// The recording the user has asked to delete. A takeaway is the user's own voice — deleting it
+    /// is irreversible and it must never happen on a stray long-press, so it is always confirmed.
+    @State private var pendingDelete: Takeaway?
 
     private var store: TakeawayStore { services.takeaways }
 
@@ -29,8 +32,24 @@ struct TakeawaysView: View {
                 .padding(.bottom, 120)
             }
             .scrollContentBackground(.hidden)
+            .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
         }
         .onDisappear { player.stop() }
+        .confirmationDialog("Delete this takeaway?",
+                            isPresented: Binding(get: { pendingDelete != nil },
+                                                 set: { if !$0 { pendingDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let t = pendingDelete {
+                    if player.currentID == t.id { player.stop() }
+                    store.delete(t)
+                }
+                pendingDelete = nil
+            }
+            Button("Keep it", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text("The recording is removed from this phone. This can't be undone.")
+        }
     }
 
     private var header: some View {
@@ -51,8 +70,12 @@ struct TakeawaysView: View {
                 Text(bookTitle(bookId)).sectionLabel()
                 Spacer()
                 Button { playAll(items) } label: {
-                    Text("Play all").font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
-                }.buttonStyle(.plain)
+                    Text(player.isPlayingQueue ? "Stop" : "Play all")
+                        .font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
+                        .frame(minHeight: 32)
+                }
+                .buttonStyle(.plain)
+                .disabled(items.isEmpty)
             }
             VStack(spacing: 10) {
                 ForEach(items) { row($0) }
@@ -95,6 +118,12 @@ struct TakeawaysView: View {
         }
         .padding(14)
         .glass(active ? .prominent : .quiet, cornerRadius: 18)
+        .contextMenu {
+            Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = t }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(dayLabel(t.date)), \(durationLabel(t.durationSec))")
+        .accessibilityHint("Double tap to play. Touch and hold to delete.")
     }
 
     private var emptyState: some View {
@@ -110,8 +139,10 @@ struct TakeawaysView: View {
     private func toggle(_ t: Takeaway) {
         player.toggle(t, url: store.audioURL(for: t))
     }
+    /// Plays a book's takeaways back to back, oldest first — the order you'd want to re-hear a
+    /// book in. The rows are stored newest-first, so this reverses them.
     private func playAll(_ items: [Takeaway]) {
-        if let first = items.first { toggle(first) }   // sequential auto-advance is a later refinement
+        player.playAll(items.reversed().map { ($0, store.audioURL(for: $0)) })
     }
 
     // MARK: Labels
