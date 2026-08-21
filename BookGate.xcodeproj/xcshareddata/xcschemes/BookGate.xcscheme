@@ -27,6 +27,22 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D100000000000000000000D1"
+               BuildableName = "BookGateTests.xctest"
+               BlueprintName = "BookGateTests"
+               ReferencedContainer = "container:BookGate.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+      <StoreKitConfigurationFileReference
+         identifier = "../BookGate.storekit">
+      </StoreKitConfigurationFileReference>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

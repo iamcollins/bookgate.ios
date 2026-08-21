@@ -10,16 +10,25 @@
 		C100000000000000000000C1 /* SubscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C1 /* SubscriptionKit */; };
 		C100000000000000000000C2 /* SubscriptionKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C2 /* SubscriptionKitUI */; };
 		C100000000000000000000C3 /* ShotKit in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C3 /* ShotKit */; };
+		DD00000000000000000000DD /* BookGate.storekit in Resources */ = {isa = PBXBuildFile; fileRef = DC00000000000000000000DC /* BookGate.storekit */; };
+		D100000000000000000000C4 /* SubscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = D100000000000000000000C5 /* SubscriptionKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B300000000000000000000B3 /* BookGate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookGate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D300000000000000000000D3 /* BookGateTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BookGateTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC00000000000000000000DC /* BookGate.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = BookGate.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B200000000000000000000B2 /* BookGate */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = BookGate;
+			sourceTree = "<group>";
+		};
+		D200000000000000000000D2 /* BookGateTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BookGateTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +44,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D500000000000000000000D5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D100000000000000000000C4 /* SubscriptionKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -42,6 +59,8 @@
 			isa = PBXGroup;
 			children = (
 				B200000000000000000000B2 /* BookGate */,
+				D200000000000000000000D2 /* BookGateTests */,
+				DC00000000000000000000DC /* BookGate.storekit */,
 				B100000000000000000000B1 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -50,6 +69,7 @@
 			isa = PBXGroup;
 			children = (
 				B300000000000000000000B3 /* BookGate.app */,
+				D300000000000000000000D3 /* BookGateTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -82,7 +102,41 @@
 			productReference = B300000000000000000000B3 /* BookGate.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D100000000000000000000D1 /* BookGateTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D700000000000000000000D7 /* Build configuration list for PBXNativeTarget "BookGateTests" */;
+			buildPhases = (
+				D400000000000000000000D4 /* Sources */,
+				D500000000000000000000D5 /* Frameworks */,
+				D600000000000000000000D6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DA00000000000000000000DA /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D200000000000000000000D2 /* BookGateTests */,
+			);
+			name = BookGateTests;
+			packageProductDependencies = (
+				D100000000000000000000C5 /* SubscriptionKit */,
+			);
+			productName = BookGateTests;
+			productReference = D300000000000000000000D3 /* BookGateTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		DB00000000000000000000DB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A100000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A200000000000000000000A2;
+			remoteInfo = BookGate;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXProject section */
 		A100000000000000000000A1 /* Project object */ = {
@@ -94,6 +148,10 @@
 				TargetAttributes = {
 					A200000000000000000000A2 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					D100000000000000000000D1 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = A200000000000000000000A2;
 					};
 				};
 			};
@@ -122,9 +180,18 @@
 			projectRoot = "";
 			targets = (
 				A200000000000000000000A2 /* BookGate */,
+				D100000000000000000000D1 /* BookGateTests */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXTargetDependency section */
+		DA00000000000000000000DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A200000000000000000000A2 /* BookGate */;
+			targetProxy = DB00000000000000000000DB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXResourcesBuildPhase section */
 		B600000000000000000000B6 /* Resources */ = {
@@ -134,10 +201,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D600000000000000000000D6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD00000000000000000000DD /* BookGate.storekit in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		B400000000000000000000B4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D400000000000000000000D4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -327,6 +409,44 @@
 			};
 			name = Release;
 		};
+		D800000000000000000000D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Q4N27Q4F3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.bookgate.BookGateTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BookGate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BookGate";
+			};
+			name = Debug;
+		};
+		D900000000000000000000D9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Q4N27Q4F3;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.bookgate.BookGateTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BookGate.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BookGate";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -344,6 +464,15 @@
 			buildConfigurations = (
 				A700000000000000000000A7 /* Debug */,
 				A800000000000000000000A8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D700000000000000000000D7 /* Build configuration list for PBXNativeTarget "BookGateTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D800000000000000000000D8 /* Debug */,
+				D900000000000000000000D9 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -383,6 +512,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C300000000000000000000C2 /* XCRemoteSwiftPackageReference "shotkit-ios" */;
 			productName = ShotKit;
+		};
+		D100000000000000000000C5 /* SubscriptionKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C300000000000000000000C1 /* XCRemoteSwiftPackageReference "subscriptionkit-ios" */;
+			productName = SubscriptionKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 
