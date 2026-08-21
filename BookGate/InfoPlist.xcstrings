@@ -1,7 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "BookGate"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription" : {
+      "comment" : "Privacy - Camera Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "BookGate uses the camera on-device: the front camera confirms you and your book at reading time and saves that night's journal photo, and the back camera photographs a book cover you add. Photos never leave your phone."
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Privacy - Microphone Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "BookGate records your optional spoken takeaway after a reading session. Recordings are stored on-device and never uploaded."
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

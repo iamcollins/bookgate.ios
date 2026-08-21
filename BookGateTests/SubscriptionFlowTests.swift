@@ -60,8 +60,9 @@ final class SubscriptionFlowTests: XCTestCase {
                 StoreKit in this process and these cases would run against the real App Store — \
                 where a restore raises a sign-in sheet and stalls the run. \
                 Diagnostic from the probe: \(Self.probeDiagnostic ?? "none"). \
-                Run from Xcode with BookGate.storekit on the scheme, or on a device signed into \
-                a sandbox account.
+                Run from Xcode with BookGate.storekit attached to the scheme. Note the \
+                Simulator cannot sign into a Sandbox Apple Account — sandbox testing happens \
+                on a real device — so there is no simulator workaround to look for.
                 """)
         }
     }
@@ -95,13 +96,15 @@ final class SubscriptionFlowTests: XCTestCase {
     /// **Every test here goes through this, and that is load-bearing.** When `SKTestSession` does
     /// not take effect — which is the case on this machine, and was also true inside
     /// SubscriptionKit's own test bundle — StoreKit silently falls through to the *real* App Store.
-    /// BookGate has no products there yet, so the catalogue comes back empty and, worse,
+    /// The catalogue is **not** empty any more — it resolves both products at their real App
+    /// Store prices, which is exactly how the sentinel-price experiment distinguishes the two
+    /// sources. What remains true is that
     /// `restore()` → `AppStore.sync()` raises a real "Sign in to Apple Account" sheet that blocks
     /// the run until the 600-second timeout. Skipping on an unresolved catalogue keeps that
     /// failure honest and fast: the suite says exactly what is missing instead of hanging.
     ///
-    /// These tests run for real once the products exist in App Store Connect — on device, or in a
-    /// simulator signed into a sandbox account.
+    /// These tests run for real once StoreKit Test is intercepting. There is no
+    /// sandbox-on-Simulator route: the Simulator cannot sign into a Sandbox Apple Account.
     private func activatedStoreOrSkip() async throws -> SubscriptionStore {
         try await skipUnlessStoreKitIsLocal()
         let store = SubscriptionStore(config: AppSubscription.config)
@@ -111,7 +114,8 @@ final class SubscriptionFlowTests: XCTestCase {
                 StoreKit resolved no products, so this environment cannot exercise a purchase. \
                 SKTestSession did not take effect and there are no App Store Connect products for \
                 \(AppSubscription.config.entitlementProductIDs.sorted().joined(separator: ", ")). \
-                Run this suite on a device or a sandbox-signed simulator once the products exist.
+                Run this suite once StoreKit Test is intercepting; there is no sandbox route \
+                on the Simulator.
                 """)
         }
         return store

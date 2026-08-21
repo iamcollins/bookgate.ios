@@ -1,76 +1,118 @@
-# Why the 10 StoreKit tests skip
+# StoreKit Test does not work on this machine
 
 `BookGateTests/SubscriptionFlowTests.swift` holds 10 cases covering purchase, restore, expiry,
-refund and trial eligibility. They skip under `Scripts/test.sh`. This is the record of what was
-checked, so nobody re-runs the investigation from scratch.
+refund and trial eligibility. All 10 skip.
 
-**Short version:** the StoreKit configuration does not reach an `xcodebuild test` process on this
-machine, by any route tried. Products resolve from the **real App Store**, and `SKTestSession` is
-inert. Those flows are device-verified only.
+**The fault is located, and it is not in this project.** StoreKit Test does not apply a
+`.storekit` configuration at all here — not for BookGate, not for Thrise, not in Xcode's Run
+action, not under `xcodebuild`. This was proven with a control, which is what every previous
+investigation lacked.
 
-## The decisive experiment
+## Environment
 
-Everything before this was inference from indirect probes, which is how the previous conclusion
-came to read as more settled than its evidence supported. This one is direct:
-
-1. Set `BookGate.storekit` monthly to a price App Store Connect cannot return — `$77.77`.
-2. Run the suite and print what `Product.products(for:)` actually returns.
-
-```
-fixture:   monthly = $77.77
-resolved:  2 [com.bookgate.premium.yearly=$29.99, com.bookgate.premium.monthly=$4.99]
-```
-
-**$4.99, not $77.77.** The catalogue is not being read from the file. It comes from the real App
-Store, which holds $4.99. That settles it: the configuration never reaches the process, so
-`SKTestSession` has nothing to intercept.
-
-Re-run this any time the situation looks like it has changed — it takes one run and answers the
-question outright. Remember to restore the price.
-
-## What was checked, and what it showed
-
-| Check | Result |
+| | |
 |---|---|
-| **`.storekit` identifiers are valid UUIDs** | ❌ **Was broken** — all six were placeholders (`…-BOOKGATESTORE`); `G`,`K`,`O`,`R`,`S`,`T` are not hex. `appPolicies` was missing and the group had no localization. **Fixed** — but it did *not* change the skips |
-| **Scheme path `../BookGate.storekit` resolves** | ✅ Correct as written. Resolution is relative to the `.xcodeproj` bundle, not the scheme's own directory. Thrise — same layout, `.storekit` beside the `.xcodeproj` — is written the same way |
-| **A test plan carries the config** | ❌ Tried. `BookGate.xctestplan` with `defaultOptions.storeKitConfigurationFileReference`, run via `-testPlan BookGate`. Same skips, same error |
+| Xcode | **26.6** (17F113) |
+| Simulator runtimes installed | **iOS 26.5 only** (23F77) |
+| Test device | iPhone 17 Pro Max, iOS 26.5 |
 
-## The probe
+## How it was proven
 
-`skipUnlessStoreKitIsLocal()` no longer infers anything. It used to set
-`session.storefront = "JPN"` and check whether prices came back in yen — a proxy with two
-false-negative modes (`Product.products(for:)` caches per process; storefront changes are not
-synchronous), so it could report "not intercepting" about a session that was working.
+The method is a **sentinel price** — a value App Store Connect cannot return. If the app shows it,
+the local config is in play; if it shows the real price, it is not.
 
-It now asks directly: buy a product through the session and check the transaction landed. If the
-session is inert this throws at once — no dialog, no hang. The skip message carries the verbatim
-diagnostic:
+| Experiment | Fixture said | App showed | Verdict |
+|---|---|---|---|
+| BookGate, `xcodebuild test` | `$77.77` | `$4.99` | config not applied |
+| BookGate, **Xcode ⌘R** | `$77.77` | `$4.99` | config not applied |
+| **Thrise, Xcode ⌘R** (control) | `$88.88` | `$4.99` | **config not applied** |
+
+The third row is the one that settles it. Thrise is a separate project with its own `.storekit`
+and its own scheme, and it fails identically. **Nothing about BookGate is responsible.**
+
+Under `xcodebuild`, every `SKTestSession` operation fails the same way:
 
 ```
-buyProduct threw: notEntitled; products resolved: 2 [monthly=$4.99, yearly=$29.99]
+[SKTestSession] Error saving configuration file:  SKInternalErrorDomain Code=3
+[SKTestSession] Error clearing overrides:         SKInternalErrorDomain Code=3
+[SKTestSession] Error deleting all transactions:  SKInternalErrorDomain Code=3
+[SKTestSession] Error setting storefront to USA:  SKInternalErrorDomain Code=3
 ```
 
-**Keep the skip.** Without it these cases run against the real App Store, where `restore()`
-reaches `AppStore.sync()`, raises a "Sign in to Apple Account" sheet, and stalls the run until its
-timeout. That cost a full red 15-minute suite once already.
+The session constructs, names the right bundle (`app.bookgate.BookGate`), and then every write to
+`storekitd` fails. That is a session↔daemon fault, not a missing or malformed file.
 
-## Corrections to the record
+## What was ruled out, and how
 
-- SubscriptionKit's `FINDINGS.md` lists this as an **OPEN BLOCKER** with four ruled-out
-  hypotheses, none of which validated *BookGate's own* fixture — hypothesis 1 rebuilt
-  SubscriptionKit's, a different file in a different repo. The fixture was in fact invalid. That
-  was a real defect and is now fixed. It was **not** the cause of the skips.
-- The scheme-path theory (that `../` should have been `../../../`) is **wrong**. `../` is what
-  Xcode itself writes for a file beside the `.xcodeproj`.
+| Hypothesis | Result |
+|---|---|
+| Invalid UUIDs in `BookGate.storekit` | **Was genuinely broken** — all six identifiers were placeholders (`…-BOOKGATESTORE`; `G`,`K`,`O`,`R`,`S`,`T` are not hex), `appPolicies` missing, no group localization. **Fixed.** Changed nothing. Thrise's fixture has the *same* defect and is the working-by-assumption control, which is what exposed it as a red herring |
+| Scheme path `../BookGate.storekit` | Correct as written. Resolution is from the `.xcodeproj` bundle; Thrise is written identically |
+| Missing test plan | Added `BookGate.xctestplan` with `storeKitConfigurationFileReference`, ran via `-testPlan`. No change. Kept — it is the documented mechanism and costs nothing |
+| `CODE_SIGN_ENTITLEMENTS` (BookGate has Family Controls, Thrise has none) | **Falsified** — ran with `CODE_SIGN_ENTITLEMENTS=""`; sentinel still `$4.99`, 50 `Code=3` errors |
+| Build config / bundle id / deployment target | Identical to the control (Debug, `26.0`) |
+| iOS 18.x runtime regression | **Untested** — no 18.x runtime installed, and none downloaded without asking. This is the one remaining check |
+
+## The claim that misled three investigations
+
+> *"StoreKit Test demonstrably works on this machine — Thrise/PillSeal run against their
+> `.storekit` files."*
+
+**Neither project contains a single line of `SKTestSession` or `StoreKitTest`.** Thrise has no
+test target at all. They had never exercised StoreKit Test in any form, so they were never
+evidence of anything — and when Thrise was finally used as a real control, it failed too.
+
+Every prior conclusion rested on this. Treat it as retired.
+
+## Errors in the record elsewhere
+
+`FINDINGS.md` in the SubscriptionKit checkout (`build-shots/SourcePackages/`, do not edit) is
+wrong in two ways:
+
+- Its **"catalogue comes back empty"** is stale. Both products resolve, at real App Store prices.
+  That change is what makes the sentinel method work at all.
+- Its **"OPEN BLOCKER"** framing pointed at the environment without ever isolating it, and its
+  four ruled-out hypotheses never validated BookGate's own fixture.
+
+Also retired: any suggestion to run these "on a sandbox-signed simulator". **The Simulator cannot
+sign into a Sandbox Apple Account** — Apple DTS: sandbox testing happens on a real device. That
+clause has been cut from the skip messages.
 
 ## What this means
 
-These 10 flows are **verified on device, or not at all**:
+These flows are **verified on a real device, or not at all**:
 
 purchase · restore · expiry · refund · trial offered-then-withdrawn · storefront pricing ·
 offline-with-live-subscriber
 
-The kept test plan is harmless and is the documented mechanism, so if a future Xcode honours it
-under `xcodebuild test`, the cases light up on their own. `Scripts/test.sh` runs the same 44
-tests with or without `-testPlan`.
+The skip stays. Without it these cases run against the real App Store, where `restore()` reaches
+`AppStore.sync()`, raises a "Sign in to Apple Account" sheet, and stalls the run until timeout —
+once costing a full red 15-minute suite. The skip probe now measures directly (buy a product
+through the session, check the transaction landed) instead of inferring from storefront prices,
+and its message carries the verbatim error and catalogue count.
+
+## If you want to try again
+
+Two things worth doing, in order:
+
+1. **Install an iOS 18.x simulator runtime and run the suite against it.** There is documented
+   precedent for this exact symptom being runtime-specific on iOS 26. It is the only untried
+   hypothesis, and it is one download.
+2. **Re-run the sentinel** after any Xcode update — one run, and it answers the question outright.
+
+```bash
+# plant, run, read, revert
+python3 - <<'EOF'
+import json, pathlib
+p = pathlib.Path("BookGate.storekit"); d = json.loads(p.read_text())
+for g in d["subscriptionGroups"]:
+    for s in g["subscriptions"]:
+        if s["productID"].endswith(".monthly"): s["displayPrice"] = "77.77"
+p.write_text(json.dumps(d, indent=2, sort_keys=True) + "\n")
+EOF
+Scripts/test.sh 2>&1 | grep -oE "products resolved: .*\]"
+# $77.77 -> fixed.  $4.99 -> still broken.  Then set it back to 4.99.
+```
+
+Expect one `SubscriptionConfigTests` failure while the sentinel is planted — that is the
+fixture-drift guardrail doing its job, not a regression.
