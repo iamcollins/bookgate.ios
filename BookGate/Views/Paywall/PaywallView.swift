@@ -323,17 +323,14 @@ struct PaywallView: View {
 
     @ViewBuilder private var cta: some View {
         if let lapse, LapseCopy.needsPaymentFix(lapse) {
-            // Selling to someone whose card expired is answering the wrong question. The
-            // subscription still exists; it just can't be charged, and only the App Store
-            // can fix that.
-            VStack(spacing: 12) {
-                Button("Update payment method") { showManage = true }
-                    .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-                Button("Choose a different plan") { purchase() }
-                    .buttonStyle(TextButtonStyle(ink: .secondary))
-                    .disabled(!(model?.canPurchase ?? false))
-            }
-            .manageSubscriptionsSheet(isPresented: $showManage)
+            // A failed payment is Apple's to fix, not ours: the card lives in the Apple
+            // Account and only the App Store can change it. So this hands straight over
+            // rather than building a payment flow we have no business owning — and it says
+            // "Manage subscription", which is what the sheet actually is, instead of
+            // promising an inline card edit that happens one screen further in.
+            Button("Manage subscription") { showManage = true }
+                .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+                .manageSubscriptionsSheet(isPresented: $showManage)
         } else {
             Button { purchase() } label: {
                 if model?.isBusy == true { ProgressView().tint(palette.actionText) }

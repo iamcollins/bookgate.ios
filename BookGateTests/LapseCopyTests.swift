@@ -77,8 +77,10 @@ final class LapseCopyTests: XCTestCase {
         }
     }
 
-    func testABillingFailureTellsThemHowToFixIt() {
+    /// A failed card is fixed in the Apple Account, so this hands over rather than
+    /// pretending BookGate can edit it.
+    func testABillingFailurePointsAtTheAppStore() {
         let text = LapseCopy.detail(.init(reason: .billingFailed), planName: nil)
-        XCTAssertTrue(text.lowercased().contains("payment method"), "got: \(text)")
+        XCTAssertTrue(text.lowercased().contains("app store"), "got: \(text)")
     }
 }

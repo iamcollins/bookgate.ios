@@ -40,8 +40,8 @@ enum LapseCopy {
             return String(localized: "Your book, your time, your shield — three days on us.")
 
         case .billingFailed:
-            // The one case where the fix is not "buy something".
-            return String(localized: "Update your payment method and your nights carry on where they left off.")
+            // The one case where the fix is not "buy something" — and not ours to build.
+            return String(localized: "Your subscription is still there. Manage it in the App Store to carry on.")
 
         case .refunded:
             return String(localized: "Start again whenever you'd like to.")
