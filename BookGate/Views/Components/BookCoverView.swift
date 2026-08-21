@@ -12,6 +12,8 @@ struct BookCoverView: View {
     var width: CGFloat
     var height: CGFloat
 
+    @Environment(\.bgPalette) private var palette
+
     private var seedPalette: [Color] {
         // A small pool of warm book-cloth gradients, chosen deterministically by the seed.
         let palettes: [[UInt32]] = [
@@ -44,7 +46,11 @@ struct BookCoverView: View {
         .frame(width: width, height: height)
         .clipShape(coverShape)
         .overlay(coverShape.strokeBorder(Color.white.opacity(0.10), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.8), radius: 16, x: 0, y: 12)
+        // A cover is an object and keeps its own colours, but its *shadow* belongs to the room it
+        // sits in: the dark theme's near-black drop read as a dirty smudge under every cover on the
+        // cream shelves of the light theme.
+        .shadow(color: .black.opacity(palette.isDark ? 0.8 : 0.24),
+                radius: palette.isDark ? 16 : 10, x: 0, y: palette.isDark ? 12 : 6)
         .accessibilityLabel(Text(book.title.isEmpty ? "Book cover" : book.title))
     }
 

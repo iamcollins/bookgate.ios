@@ -23,7 +23,9 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let coverHeight = min(440, geo.size.height * 0.54)
+            // The cover carries the screen down to the sheet. A flat 440pt cap left a band of bare
+            // background between the two on a large phone — the book stopped, and nothing took over.
+            let coverHeight = geo.size.height * 0.58
             ZStack(alignment: .top) {
                 coverHeader(height: coverHeight, width: geo.size.width)
 
@@ -34,7 +36,7 @@ struct TodayView: View {
                     Spacer(minLength: 0)
                     bottomSheet
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 118)   // clear the floating tab bar
+                        .padding(.bottom, 104)   // clear the floating tab bar
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
@@ -60,12 +62,10 @@ struct TodayView: View {
                 if let book, let img = services.books.coverImage(for: book) {
                     Image(uiImage: img).resizable().scaledToFill()
                 } else {
-                    // The Today cover gradient (155deg warm cloth) + spine line.
-                    LinearGradient(colors: [Color(hex: 0x6D5340), Color(hex: 0x8A6A4E), Color(hex: 0x5D4635)],
-                                   startPoint: UnitPoint(x: 0.15, y: 0), endPoint: UnitPoint(x: 0.85, y: 1))
-                    .overlay(alignment: .leading) {
-                        Rectangle().fill(Color.black.opacity(0.25)).frame(width: 1.5).padding(.leading, 14)
-                    }
+                    // No photograph yet — so the header becomes the cover, set the way a cloth
+                    // binding is. Previously this was a bare gradient: half the screen of empty
+                    // brown, with the book's name nowhere on its own home screen.
+                    typographicCover(book, width: width, height: height)
                 }
             }
             .frame(width: width, height: height)
@@ -79,6 +79,39 @@ struct TodayView: View {
                     .init(color: palette.base, location: 1.0),
                 ], startPoint: .top, endPoint: .bottom)
             }
+        }
+    }
+
+    /// The fallback cover: warm cloth, a spine line, and the book set in the serif — the same
+    /// language as `BookCoverView`, scaled up to the header.
+    private func typographicCover(_ book: Book?, width: CGFloat, height: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            LinearGradient(colors: [Color(hex: 0x6D5340), Color(hex: 0x8A6A4E), Color(hex: 0x5D4635)],
+                           startPoint: UnitPoint(x: 0.15, y: 0), endPoint: UnitPoint(x: 0.85, y: 1))
+            Rectangle().fill(Color.black.opacity(0.25))
+                .frame(width: 1.5)
+                .padding(.leading, 14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(book?.title ?? String(localized: "Your book"))
+                    .font(BGFont.serif(36, .medium))
+                    .foregroundStyle(Color(hex: 0xFBF5EA))
+                    .lineLimit(3)
+                    .minimumScaleFactor(0.7)
+                    .shadow(color: .black.opacity(0.35), radius: 12, y: 3)
+                if let author = book?.author, !author.isEmpty {
+                    Text(author)
+                        .font(BGFont.aside(16))
+                        .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.78))
+                        .lineLimit(1)
+                        .shadow(color: .black.opacity(0.3), radius: 8, y: 2)
+                }
+            }
+            .padding(.leading, 34)
+            .padding(.trailing, 28)
+            // Set where a cover sets its title, and — just as importantly — in the band where the
+            // scrim is clear. Lower down, the fade into the sheet washed the type out to grey.
+            .padding(.top, height * 0.30)
         }
     }
 
@@ -119,8 +152,8 @@ struct TodayView: View {
 
     private var bottomSheet: some View {
         VStack(spacing: 16) {
-            if missedYesterday && !readToday {
-                Text("Last night slipped by. Tonight is a fresh page.")
+            if let note = statusNote {
+                Text(note)
                     .font(BGFont.aside(14.5))
                     .foregroundStyle(palette.ink(.body))
                     .multilineTextAlignment(.center)
@@ -146,6 +179,19 @@ struct TodayView: View {
         }
         .padding(18)
         .glass(.prominent, cornerRadius: 28)
+    }
+
+    /// One calm line above tonight's row, or nothing at all. A rest day is named as the rule
+    /// Settings promises, so a kept streak after a missed night never looks like a bug.
+    private var statusNote: String? {
+        guard !readToday else { return nil }
+        if services.progress.onRestDay {
+            return String(localized: "Last night was your rest day. The streak still stands.")
+        }
+        if missedYesterday {
+            return String(localized: "Last night slipped by. Tonight is a fresh page.")
+        }
+        return nil
     }
 
     private var tonightRow: some View {
@@ -199,8 +245,11 @@ struct TodayView: View {
                         Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
                             .font(.system(size: 13, weight: .bold)).foregroundStyle(palette.brassValue)
                     }
-                    Text(t.transcript ?? "“…”")
-                        .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).lineLimit(1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Last takeaway").sectionLabel(color: palette.ink(.caption))
+                        Text(takeawayLabel(t))
+                            .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).lineLimit(1)
+                    }
                     Spacer()
                     Text("\(timeStr(active ? player.currentTime : 0)) / \(timeStr(t.durationSec))")
                         .font(BGFont.mono(11)).foregroundStyle(palette.ink(.secondary))
@@ -209,6 +258,13 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// What the takeaway row says. There is no transcript (nothing is sent anywhere to make one),
+    /// so it says *when* — which is what you actually want when deciding whether to replay it.
+    private func takeawayLabel(_ t: Takeaway) -> String {
+        if let book = t.bookId.flatMap({ services.books.book(id: $0) }) { return book.title }
+        return t.date.formatted(.relative(presentation: .named)).localizedCapitalized
     }
 
     private func timeStr(_ t: TimeInterval) -> String {
