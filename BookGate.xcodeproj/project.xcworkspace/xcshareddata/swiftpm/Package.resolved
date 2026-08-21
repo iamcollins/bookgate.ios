@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "git@github.com:iamcollins/subscriptionkit-ios.git",
       "state" : {
-        "revision" : "f2ca214d9c2866d79b2b282f6562eeb796ca808b",
-        "version" : "0.4.1"
+        "revision" : "926032bc967b60871316a1ac6838cfbcf2eb852f",
+        "version" : "0.4.2"
       }
     }
   ],

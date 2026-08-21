@@ -48,7 +48,9 @@ struct SubscriptionCard: View {
         .padding(16)
         .glass(.card, cornerRadius: 20)
         .manageSubscriptionsSheet(isPresented: $showManage)
-        .task { _ = await store.refreshEntitlement() }
+        // No refresh on appear: RootView already refreshes on every foreground, and
+        // returning from Apple's sheet *is* a foreground. Opening Settings was adding a
+        // third concurrent caller for a fact that had just been re-read.
     }
 
     // MARK: Status
