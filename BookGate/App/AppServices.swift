@@ -126,11 +126,14 @@ final class AppServices {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
-        _ = await subscription.refreshEntitlement()
-        // A session keeps running on the wall clock while the app is suspended; catch the published
-        // numbers up before anything is drawn.
+        // Both of these are local and neither reads entitlement, so neither may sit behind the
+        // subscription refresh — `consumePendingGate()` is how a tapped alarm reaches the reading
+        // gate, and putting it after a network-touching call is the same mistake `onLaunch` had.
+        // A session keeps running on the wall clock while the app is suspended; catch the
+        // published numbers up before anything is drawn.
         session.syncClock()
         session.consumePendingGate()
+        _ = await subscription.refreshEntitlement()
     }
 
     /// Re-schedule after an edit to the alarm time / active nights. A lapsed reader's edits
