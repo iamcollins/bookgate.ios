@@ -5,6 +5,9 @@ import SwiftUI
 /// takeaway. Variants: missed-yesterday (calm, quiet chip, no red) and already-read-today
 /// (primary becomes secondary).
 struct TodayView: View {
+    /// Sends the reader to Library. Supplied by the tab shell, which owns the selection.
+    var onOpenLibrary: () -> Void = {}
+
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
 
@@ -13,6 +16,10 @@ struct TodayView: View {
     @State private var player = AudioPlayer()
 
     private var book: Book? { services.books.currentReading }
+    /// With no book there is no cover, so the header is bare ambient and its chrome takes ink
+    /// from the palette instead of the cream that only ever worked over dark cloth.
+    private var hasBook: Bool { book != nil }
+    private var libraryIsEmpty: Bool { services.books.books.isEmpty }
     private var streak: Int { services.progress.liveStreak }
     private var readToday: Bool { services.progress.readToday }
     private var missedYesterday: Bool { services.progress.missedYesterday }
@@ -27,13 +34,20 @@ struct TodayView: View {
             // background between the two on a large phone — the book stopped, and nothing took over.
             let coverHeight = geo.size.height * 0.58
             ZStack(alignment: .top) {
-                coverHeader(height: coverHeight, width: geo.size.width)
+                if hasBook {
+                    coverHeader(height: coverHeight, width: geo.size.width)
+                }
 
                 VStack(spacing: 0) {
                     wordmarkRow
                         .padding(.horizontal, 20)
                         .padding(.top, geo.safeAreaInsets.top + 6)
                     Spacer(minLength: 0)
+                    if !hasBook {
+                        chooseBookPrompt
+                            .padding(.horizontal, 28)
+                        Spacer(minLength: 0)
+                    }
                     bottomSheet
                         .padding(.horizontal, 20)
                         .padding(.bottom, 12)   // the system tab bar insets the rest
@@ -159,19 +173,51 @@ struct TodayView: View {
         }
     }
 
-    // MARK: Wordmark row (always over the dark cover → light ink)
+    // MARK: The reader has no book yet
+
+    /// What the header becomes with nothing to show. Drawing the cloth cover anyway — which is
+    /// what "Your book" was — puts a book on the screen that does not exist, and the one thing
+    /// this screen needs to say is which book it should be.
+    private var chooseBookPrompt: some View {
+        VStack(spacing: 16) {
+            Text("What are you reading?")
+                .font(BGFont.serif(30, .medium))
+                .foregroundStyle(palette.ink(.hero))
+                .multilineTextAlignment(.center)
+            Button { onOpenLibrary() } label: {
+                HStack(spacing: 7) {
+                    Text(libraryIsEmpty ? "Add your first book" : "Choose a book")
+                        .font(BGFont.ui(14.5, .semibold))
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(palette.brassValue)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 11)
+                .glass(.card, cornerRadius: 21, interactive: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: Wordmark row
+
+    /// Cream while it sits on the dark cover; palette ink once the cover is gone, or it would be
+    /// invisible against paper.
+    private var headerInk: Color {
+        hasBook ? Color(hex: 0xF7EFE4, opacity: 0.75) : palette.ink(.secondary)
+    }
 
     private var wordmarkRow: some View {
         HStack(alignment: .center) {
             Text("BOOKGATE")
                 .font(BGFont.ui(10.5, .semibold)).tracking(1.6)
-                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.75))
+                .foregroundStyle(headerInk)
             Spacer()
             streakChip
             Button { showSettings = true } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.75))
+                    .foregroundStyle(headerInk)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -179,15 +225,24 @@ struct TodayView: View {
         }
     }
 
-    private var streakChip: some View {
-        HStack(spacing: 6) {
+    @ViewBuilder private var streakChip: some View {
+        let chip = HStack(spacing: 6) {
             BookmarkShape(notch: 0.74).fill(palette.brassObject).frame(width: 10, height: 14)
             Text("\(streak)")
                 .font(BGFont.serif(15, .medium))
-                .foregroundStyle(Color(hex: 0xF2D6AB))
+                .foregroundStyle(hasBook ? Color(hex: 0xF2D6AB) : palette.brassValue)
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(Capsule().fill(Color(hex: 0x140E09, opacity: 0.38)))
+
+        Group {
+            if hasBook {
+                // A scrim capsule, because the cover behind it is a photograph and glass would
+                // take its colour from whatever happens to be printed there.
+                chip.background(Capsule().fill(Color(hex: 0x140E09, opacity: 0.38)))
+            } else {
+                chip.glass(.card, cornerRadius: 14)
+            }
+        }
         .opacity(missedYesterday ? 0.55 : 1)      // chip goes quiet on a miss — no red, no drama
         .accessibilityLabel("\(streak) night streak")
     }
