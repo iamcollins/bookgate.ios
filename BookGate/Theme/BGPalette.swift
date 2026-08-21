@@ -51,7 +51,6 @@ struct BGPalette: Equatable {
     // dark but ink .58 on light — paper needs far more weight than the ladder's flat +0.08 bump
     // gives, because the bar's own material is nearly the page colour.
     let tabInactive: Color        // inactive tab icon + label
-    let homeIndicator: Color
 
     // Shadows (colour only; radius/offset live on the modifiers)
     let shadowColor: Color
@@ -116,7 +115,6 @@ struct BGPalette: Equatable {
         hairline: Color(hex: 0xFFE8CC, opacity: 0.12),
         recess: Color(hex: 0xFFF0DE, opacity: 0.04),
         tabInactive: Color(hex: 0xF7EFE4, opacity: 0.40),
-        homeIndicator: Color(hex: 0xF7EFE4, opacity: 0.28),
         shadowColor: Color.black,
         heatmapFills: [
             Color(hex: 0xE7AE5C, opacity: 0.35),
@@ -137,8 +135,10 @@ struct BGPalette: Equatable {
             .init(color: Color(hex: 0xE4D8C4), location: 0.78),
             .init(color: Color(hex: 0xE4D8C4), location: 1.00),
         ],
-        glowWarm: Color(hex: 0xE2A862, opacity: 0.30),
-        glowCopper: Color(hex: 0xC67C4A, opacity: 0.22),
+        // The handoff's light frames run the blobs at .22 / .14, not the dark theme's .26 / .20:
+        // the same alpha that reads as a lamp in a dark room reads as a stain on paper.
+        glowWarm: Color(hex: 0xE2A862, opacity: 0.22),
+        glowCopper: Color(hex: 0xC67C4A, opacity: 0.14),
         inkBase: 0x231A12,
         inkBump: 0.08,
         brassLabel: Color(hex: 0x8A5A22),
@@ -159,7 +159,6 @@ struct BGPalette: Equatable {
         hairline: Color(hex: 0x231A12, opacity: 0.10),
         recess: Color(hex: 0x231A12, opacity: 0.05),
         tabInactive: Color(hex: 0x231A12, opacity: 0.58),
-        homeIndicator: Color(hex: 0x231A12, opacity: 0.30),
         shadowColor: Color(hex: 0x5A3C1E),
         heatmapFills: [
             Color(hex: 0xC98F4A, opacity: 0.38),

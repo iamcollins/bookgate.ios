@@ -67,39 +67,40 @@ struct MainTabView: View {
     }
 }
 
-/// The floating glass panel: radius 26, fill `.07`, border `.14`, blur 20, a soft top shadow, and a
-/// home indicator below it. Inactive icons ink .4, active brass. Today's icon is the bookmark motif.
+/// The floating glass panel: radius 26, fill `.07`, border `.14`, blur 20, a soft top shadow.
+/// Inactive icons ink .4, active brass. Today's icon is the bookmark motif.
+///
+/// No home indicator. The handoff's frames draw one as a `<div>` because a web mockup has no OS
+/// chrome to borrow; on the phone iOS draws the real one, so copying the div gave the screen two —
+/// a decoy 130×5 capsule sitting a centimetre above the genuine article. The 18pt of bottom
+/// padding is what that capsule and its spacing used to occupy, so the panel has not moved.
 struct BGTabBar: View {
     @Binding var selection: BGTab
     @Environment(\.bgPalette) private var palette
 
     var body: some View {
-        VStack(spacing: 9) {
-            HStack(spacing: 0) {
-                ForEach(BGTab.allCases) { tab in
-                    tabButton(tab)
-                }
+        HStack(spacing: 0) {
+            ForEach(BGTab.allCases) { tab in
+                tabButton(tab)
             }
-            .padding(.top, 11)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 5)
-            .background {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(palette.glassQuiet))
-                    .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(palette.glassBorder, lineWidth: 1))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-            .shadow(color: .black.opacity(0.35), radius: 16, x: 0, y: -1)
-            .padding(.horizontal, 44)
-
-            // Home indicator.
-            Capsule()
-                .fill(palette.homeIndicator)
-                .frame(width: 130, height: 5)
         }
-        .padding(.bottom, 4)
+        .padding(.top, 11)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 5)
+        .background {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(palette.glassQuiet))
+                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .strokeBorder(palette.glassBorder, lineWidth: 1))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        // `0 -1px 16px rgba(0,0,0,.35)` on dark, `rgba(90,60,30,.2)` on light. Black was
+        // hardcoded here for both, and on paper a black cast reads as grime, not depth.
+        .shadow(color: palette.shadowColor.opacity(palette.isDark ? 0.35 : 0.20),
+                radius: 16, x: 0, y: -1)
+        .padding(.horizontal, 44)
+        .padding(.bottom, 18)
     }
 
     private func tabButton(_ tab: BGTab) -> some View {

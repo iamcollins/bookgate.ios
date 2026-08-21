@@ -70,28 +70,65 @@ struct TodayView: View {
             }
             .frame(width: width, height: height)
             .clipped()
-            // Scrim: dark at top for wordmark legibility, fading to the theme base at the bottom.
+            // Top scrim, both themes: the cover is an object and stays dark on paper too, so the
+            // cream wordmark row needs the same band it gets at night.
+            //
+            // Carried a third of the way down rather than dying at 24%. The cloth's own gradient
+            // peaks at #8A6A4E around the title, and with nothing over it the upper third read as
+            // a pale wall — the scrim is the only lever that can weight it, because the cover is
+            // an object and its colours are theme-independent. Stops end before the paper sink
+            // starts at 30%, so the two never mix into grey.
             .overlay {
                 LinearGradient(stops: [
-                    .init(color: Color(hex: 0x100C09, opacity: 0.55), location: 0.0),
-                    .init(color: .clear, location: 0.24),
-                    .init(color: Color(hex: 0x100C09, opacity: 0.34), location: 0.66),
-                    .init(color: palette.base, location: 1.0),
+                    .init(color: Color(hex: 0x100C09, opacity: 0.66), location: 0.00),
+                    .init(color: Color(hex: 0x100C09, opacity: 0.50), location: 0.12),
+                    .init(color: Color(hex: 0x100C09, opacity: 0.26), location: 0.26),
+                    .init(color: Color(hex: 0x100C09, opacity: 0.00), location: 0.42),
+                ], startPoint: .top, endPoint: .bottom)
+            }
+            // The sink. On light the header "fades into paper rather than into black" (handoff
+            // 11b) — sinking it into #100C09 on a cream page was what turned the lower half of
+            // the cover into a grey bruise.
+            .overlay {
+                LinearGradient(stops: [
+                    .init(color: sink.opacity(0.00), location: 0.30),
+                    .init(color: sink.opacity(0.34), location: 0.66),
+                    .init(color: sink.opacity(0.86), location: 0.88),
+                    .init(color: sink.opacity(1.00), location: 1.00),
+                ], startPoint: .top, endPoint: .bottom)
+            }
+            // …and it dissolves rather than stopping. No opaque colour can end the header
+            // cleanly: behind it sit the ambient wash and two drifting blobs, all of them a
+            // different value at the cover's edge than `base` is. That mismatch is the hard line
+            // across the light screen. Fading the header's *alpha* to nothing lands it on
+            // whatever is actually back there, in either theme.
+            .mask {
+                LinearGradient(stops: [
+                    .init(color: .white, location: 0.00),
+                    .init(color: .white, location: 0.62),
+                    .init(color: .white.opacity(0.74), location: 0.79),
+                    .init(color: .white.opacity(0.34), location: 0.90),
+                    .init(color: .white.opacity(0.10), location: 0.96),
+                    .init(color: .white.opacity(0.00), location: 1.00),
                 ], startPoint: .top, endPoint: .bottom)
             }
         }
     }
 
-    /// The fallback cover: warm cloth, a spine line, and the book set in the serif — the same
-    /// language as `BookCoverView`, scaled up to the header.
+    /// What the header sinks into: the night floor on dark, paper on light.
+    private var sink: Color { palette.isDark ? Color(hex: 0x100C09) : palette.base }
+
+    /// The fallback cover: warm cloth and the book set in the serif — `BookCoverView`'s language
+    /// scaled up to the header.
+    ///
+    /// No spine. `BookCoverView` draws one because that cover is a bounded object with a visible
+    /// edge for the crease to sit next to; here the cloth bleeds off all four sides, so the same
+    /// rule 13pt from the screen edge reads as a scratch down the page rather than as a binding —
+    /// which is exactly how it landed on paper.
     private func typographicCover(_ book: Book?, width: CGFloat, height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             LinearGradient(colors: [Color(hex: 0x6D5340), Color(hex: 0x8A6A4E), Color(hex: 0x5D4635)],
                            startPoint: UnitPoint(x: 0.15, y: 0), endPoint: UnitPoint(x: 0.85, y: 1))
-            Rectangle().fill(Color.black.opacity(0.25))
-                .frame(width: 1.5)
-                .padding(.leading, 14)
-                .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 8) {
                 Text(book?.title ?? String(localized: "Your book"))
                     .font(BGFont.serif(36, .medium))

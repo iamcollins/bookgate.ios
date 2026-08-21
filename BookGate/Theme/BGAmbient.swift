@@ -8,8 +8,10 @@ import SwiftUI
 struct BGAmbientBackground: View {
     /// Centre of the ambient wash, in unit space (CSS default is 50% / -8%).
     var center: UnitPoint = UnitPoint(x: 0.5, y: -0.08)
-    /// End radius as a fraction of the frame (CSS ~125%/80%).
-    var endRadiusFraction: CGFloat = 0.95
+    /// Ambient radii as fractions of the frame's own width and height — the CSS `125% 80%`.
+    /// Per-axis, because the wash is far wider than the screen but only ~4/5 of its height.
+    var radiusX: CGFloat = 1.25
+    var radiusY: CGFloat = 0.80
     /// Show the drifting glow blobs on top of the wash. Max two, always.
     var showGlow: Bool = true
     /// Nudge the two blobs' home positions for variety per screen.
@@ -22,11 +24,21 @@ struct BGAmbientBackground: View {
         GeometryReader { geo in
             ZStack {
                 palette.base
+                // CSS is `radial-gradient(125% 80% at 50% -8%, …)`: two radii, one per axis, each
+                // a fraction of the box. `EllipticalGradient` takes a single fraction of the
+                // ellipse inscribed in its frame, so the vertical radius sets that fraction and
+                // the wider horizontal one is bought by drawing into an over-wide frame and
+                // clipping back. Folding both axes into one 0.95 was what killed the wash: it
+                // reached its last stop at 40% of the screen, and everything below — the whole
+                // lower half of Today — was one flat colour. Unreadable as depth on paper.
                 EllipticalGradient(
                     stops: palette.ambientStops,
                     center: center,
-                    endRadiusFraction: endRadiusFraction
+                    endRadiusFraction: radiusY * 2
                 )
+                .frame(width: geo.size.width * (radiusX / radiusY), height: geo.size.height)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
                 if showGlow {
                     GlowBlob(color: palette.glowWarm, diameter: 320, anchor: warmAnchor,
                              period: 21, drift: 0.06, size: geo.size)
