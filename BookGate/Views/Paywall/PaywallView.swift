@@ -253,7 +253,7 @@ struct PaywallView: View {
     }
 
     /// "month" / "year", for "a year" and "per month" phrasing. Nil for a non-renewing product.
-    private func periodNoun(_ period: Product.SubscriptionPeriod?) -> String? {
+    private func periodNoun(_ period: BillingPeriod?) -> String? {
         guard let period else { return nil }
         switch period.unit {
         case .day:   return String(localized: "day")

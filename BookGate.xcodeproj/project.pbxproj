@@ -484,7 +484,7 @@
 			repositoryURL = "git@github.com:iamcollins/subscriptionkit-ios.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 0.1.1;
+				minimumVersion = 0.2.0;
 			};
 		};
 		C300000000000000000000C2 /* XCRemoteSwiftPackageReference "shotkit-ios" */ = {

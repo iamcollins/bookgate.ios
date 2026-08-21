@@ -32,13 +32,36 @@ enum AppSubscription {
     )
 
     /// Dev bypass (`BOOKGATE_PRO=1`) so the onboarding→home flow can be walked without
-    /// buying anything. Constructed inside the app's own `#if DEBUG` as well as the
-    /// package's — this is revenue-critical, and one gate isn't worth betting on.
+    /// buying anything, plus the prices the paywall shows when StoreKit has nothing to say.
+    /// Constructed inside the app's own `#if DEBUG` as well as the package's — this is
+    /// revenue-critical, and one gate isn't worth betting on.
     private static var debugOverrides: DebugOverrides {
         #if DEBUG
-        .init(forceEntitledEnvironment: .init(key: "BOOKGATE_PRO", value: "1"))
+        .init(forceEntitledEnvironment: .init(key: "BOOKGATE_PRO", value: "1"),
+              previewPlans: previewPlans)
         #else
         .none
         #endif
     }
+
+    #if DEBUG
+    /// What the paywall renders on a Simulator, which cannot reach real products: it has no
+    /// Sandbox Apple Account setting, and a `.storekit` configuration is attached by Xcode's Run
+    /// action, which `simctl` and `xcodebuild` never perform. Without these the paywall is two
+    /// empty placeholder cards on every machine, which makes the screen impossible to review.
+    ///
+    /// **These are placeholders, not the truth.** The moment StoreKit resolves anything — a device,
+    /// TestFlight, sandbox — the real App Store Connect prices win, and this is never compiled into
+    /// a Release build. Keep them close to the real ones so the layout is reviewed at the right
+    /// widths; the savings badge here is stated, while the shipping one is computed.
+    private static let previewPlans: [PreviewPlan] = [
+        .init(id: yearlyID, displayName: "Yearly", displayPrice: "$29.99",
+              pricePerMonth: "$2.50", period: .init(unit: .year, value: 1),
+              introOffer: .freeTrial(days: 3), isRecommended: true,
+              savingsPercentVsMonthly: 58),
+        .init(id: monthlyID, displayName: "Monthly", displayPrice: "$5.99",
+              period: .init(unit: .month, value: 1),
+              introOffer: .freeTrial(days: 3)),
+    ]
+    #endif
 }
