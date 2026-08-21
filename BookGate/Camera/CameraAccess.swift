@@ -11,6 +11,13 @@ enum CameraAccess {
 
     static var isAuthorized: Bool { status == .authorized }
 
+    /// Whether this device actually has the camera we're about to ask for. Permission can be
+    /// granted on a machine with no camera at all (every Simulator), where the preview layer stays
+    /// black for ever and the user is left staring at a viewfinder that will never see anything.
+    static func hasCamera(position: AVCaptureDevice.Position) -> Bool {
+        AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position) != nil
+    }
+
     /// True once the user has answered the system prompt in either direction —
     /// the states where a warning/gate is warranted (as opposed to `.notDetermined`,
     /// where we simply haven't asked yet).

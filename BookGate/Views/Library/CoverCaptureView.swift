@@ -13,12 +13,19 @@ struct CoverCaptureView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var controller = CoverCaptureController()
     @State private var authDenied = false
+    @State private var noCamera = false
+
+    private var cameraUsable: Bool { !authDenied && !noCamera }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if authDenied {
-                CameraUnavailableView(message: String(localized: "Enable camera access to photograph a cover, or go back and type the title."))
+            if !cameraUsable {
+                CameraUnavailableView(message: authDenied
+                    ? String(localized: "Allow the camera to photograph a cover, or go back and type the title.")
+                    : String(localized: "This device has no camera. Go back and type the title instead."),
+                    showSettingsLink: authDenied)
+                    .ignoresSafeArea()
             } else {
                 CameraPreview(session: controller.camera.session).ignoresSafeArea()
             }
@@ -31,15 +38,17 @@ struct CoverCaptureView: View {
                     Spacer()
                 }
                 Spacer()
-                Text("Fill the frame with the cover")
-                    .font(BGFont.ui(14, .medium)).foregroundStyle(.white.opacity(0.85))
-                    .padding(.bottom, 16)
-                Button { controller.capture() } label: {
-                    Circle().fill(.white).frame(width: 72, height: 72)
-                        .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 4).padding(-6))
+                if cameraUsable {
+                    Text("Fill the frame with the cover")
+                        .font(BGFont.ui(14, .medium)).foregroundStyle(.white.opacity(0.85))
+                        .padding(.bottom, 16)
+                    Button { controller.capture() } label: {
+                        Circle().fill(.white).frame(width: 72, height: 72)
+                            .overlay(Circle().strokeBorder(.white.opacity(0.5), lineWidth: 4).padding(-6))
+                    }
+                    .accessibilityLabel("Take the photo")
+                    .padding(.bottom, 40)
                 }
-                .disabled(authDenied)
-                .padding(.bottom, 40)
             }
             .padding(.horizontal, 20)
             .padding(.top, 40)
@@ -47,13 +56,15 @@ struct CoverCaptureView: View {
         .task {
             let status = await CameraAccess.request()
             authDenied = (status == .denied || status == .restricted)
+            noCamera = !CameraAccess.hasCamera(position: .back)
             controller.onResult = { jpeg, img, ocr in
                 onResult(jpeg, img, ocr)
                 dismiss()
             }
-            controller.start()
+            if cameraUsable { controller.start() }
         }
         .onDisappear { controller.stop() }
+        .keepAwake()
     }
 }
 

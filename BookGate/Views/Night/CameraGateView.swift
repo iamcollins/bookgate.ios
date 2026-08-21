@@ -14,6 +14,9 @@ struct CameraGateView: View {
     @State private var showSuccess = false
     @State private var captured: Data?
     @State private var authDenied = false
+    @State private var noCamera = false
+
+    private var cameraUsable: Bool { !authDenied && !noCamera }
 
     private var session: SessionCoordinator { services.session }
     private var bookTitle: String { services.books.currentReading?.title ?? "your book" }
@@ -24,7 +27,7 @@ struct CameraGateView: View {
             VStack(spacing: 22) {
                 header
                 viewfinder
-                hints
+                if cameraUsable { hints }
                 Spacer(minLength: 0)
                 manualFallback
             }
@@ -37,8 +40,10 @@ struct CameraGateView: View {
         .task {
             let status = await CameraAccess.request()
             authDenied = (status == .denied || status == .restricted)
+            noCamera = !CameraAccess.hasCamera(position: .front)
             detector.onCapture = { data in handleCapture(data) }
-            detector.start()
+            // Don't spin a capture session that can never produce a frame.
+            if cameraUsable { detector.start() }
         }
         .onDisappear { detector.stop() }
         .onAppear { sweep = true }
@@ -60,14 +65,18 @@ struct CameraGateView: View {
         ZStack {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(Color.black.opacity(0.6))
-            if authDenied {
-                CameraUnavailableView(message: String(localized: "No camera access — use “I’m holding my book” below, or enable the camera in Settings."))
-                    .padding(20)
+            if !cameraUsable {
+                CameraUnavailableView(message: authDenied
+                    ? String(localized: "BookGate can't see. Start without the camera below, or allow the camera in Settings.")
+                    : String(localized: "This device has no camera. Start without it below — tonight still counts."),
+                    showSettingsLink: authDenied)
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             } else {
                 CameraPreview(session: detector.captureSession)
                     .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             }
-            // Sweeping scan line.
+            // Sweeping scan line — only over a live picture.
+            if cameraUsable {
             GeometryReader { geo in
                 Rectangle()
                     .fill(LinearGradient(colors: [.clear, palette.brassLabel.opacity(0.7), .clear],
@@ -75,6 +84,7 @@ struct CameraGateView: View {
                     .frame(height: 2)
                     .offset(y: reduceMotion ? geo.size.height * 0.5 : (sweep ? geo.size.height - 4 : 4))
                     .animation(reduceMotion ? nil : .easeInOut(duration: 2.6).repeatForever(autoreverses: true), value: sweep)
+            }
             }
             CornerBrackets(inset: 10, length: 26)
                 .stroke(palette.brassLabel, style: StrokeStyle(lineWidth: 3, lineCap: .round))
@@ -105,9 +115,16 @@ struct CameraGateView: View {
         .glass(.quiet, cornerRadius: 13)
     }
 
-    private var manualFallback: some View {
-        Button("Start without the camera") { detector.requestManualCapture() }
-            .buttonStyle(GlassButtonStyle(minHeight: 50))
+    /// Always present, by design: nobody is locked out of their own reading night by a camera.
+    /// It becomes the primary action when there is no picture to take.
+    @ViewBuilder private var manualFallback: some View {
+        if cameraUsable {
+            Button("Start without the camera") { detector.requestManualCapture() }
+                .buttonStyle(GlassButtonStyle(minHeight: 50))
+        } else {
+            Button("I'm holding my book") { detector.requestManualCapture() }
+                .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+        }
     }
 
     private var successOverlay: some View {
@@ -132,6 +149,7 @@ struct CameraGateView: View {
 
     private func handleCapture(_ data: Data?) {
         captured = data
+        Haptics.gateOpened()
         withAnimation { showSuccess = true }
         detector.stop()
         Task {

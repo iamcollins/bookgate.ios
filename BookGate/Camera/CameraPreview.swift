@@ -62,26 +62,44 @@ enum ScreenshotCamera {
 /// The fallback shown behind the firing ring when a camera challenge can't use
 /// the camera (permission denied / restricted). Mirrors the app's calm gradient
 /// so the ring + copy stay legible; the `message` tailors the ask per challenge.
+/// What a camera screen shows when there is no picture to show: access was refused, or the device
+/// has no such camera. Always paired with a way forward — every camera moment in BookGate has a
+/// manual path, so this is an explanation, never a dead end.
+///
+/// (It used to be drawn in a deep indigo carried over from the app this camera stack came from,
+/// which was the one purple surface in an otherwise warm app.)
 struct CameraUnavailableView: View {
-    var message: String = String(localized: "Enable camera access in Settings to finish this challenge.", comment: "Camera-denied fallback message")
+    var message: String = String(localized: "Enable camera access in Settings to carry on.",
+                                 comment: "Camera-denied fallback message")
+    /// Shown only when the block is a permission the user can actually change.
+    var showSettingsLink: Bool = false
+
+    @Environment(\.bgPalette) private var palette
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: 0x0d0a1e), Color(hex: 0x241a3e)],
+            LinearGradient(colors: [Color(hex: 0x1A120B), Color(hex: 0x0F0A07)],
                            startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
-            VStack(spacing: 10) {
-                Image(systemName: "video.slash.fill")
-                    .font(.system(size: 26, weight: .semibold))
-                Text("Camera unavailable")
-                    .font(.system(size: 15, weight: .semibold))
+            VStack(spacing: 12) {
+                Image(systemName: "camera.metering.unknown")
+                    .font(.system(size: 26, weight: .light))
+                    .foregroundStyle(Color(hex: 0xE9B872, opacity: 0.8))
+                Text("No picture here")
+                    .font(BGFont.serif(19, .medium))
+                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.92))
                 Text(message)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(BGFont.body)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .padding(.horizontal, 40)
+                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.62))
+                    .padding(.horizontal, 26)
+                if showSettingsLink, let url = URL(string: UIApplication.openSettingsURLString) {
+                    Link("Open Settings", destination: url)
+                        .font(BGFont.ui(13, .semibold))
+                        .foregroundStyle(Color(hex: 0xE9B872))
+                        .frame(height: 44)
+                }
             }
-            .foregroundStyle(.white)
+            .padding(.vertical, 24)
         }
     }
 }
