@@ -17,8 +17,8 @@ import SubscriptionKit
 /// unlock the app.
 enum AppSubscription {
 
-    static let monthlyID = "app.bookgate.pro.monthly"
-    static let yearlyID  = "app.bookgate.pro.yearly"
+    static let monthlyID = "com.bookgate.premium.monthly"
+    static let yearlyID  = "com.bookgate.premium.yearly"
 
     static let config = SubscriptionConfig(
         plans: [

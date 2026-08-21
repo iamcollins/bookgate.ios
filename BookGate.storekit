@@ -49,7 +49,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "app.bookgate.pro.monthly",
+          "productID" : "com.bookgate.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "BookGate Monthly",
           "subscriptionGroupID" : "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
@@ -79,7 +79,7 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "app.bookgate.pro.yearly",
+          "productID" : "com.bookgate.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "BookGate Yearly",
           "subscriptionGroupID" : "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
