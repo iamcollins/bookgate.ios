@@ -21,7 +21,31 @@ final class ProgressStore {
     /// Elapsed seconds of the most recent completed session, for the complete screen.
     private(set) var lastElapsed: TimeInterval = 0
 
+    /// The missed night most recently forgiven by the rest-day rule, if any. Settings states the
+    /// rule plainly — "A missed night keeps your streak, once every seven days" — so the engine has
+    /// to honour it: without this, one skipped night reset the streak to 1 and the app broke a
+    /// promise it made in writing.
+    private(set) var restDayUsed: Date?
+
+    /// How often a rest day may be spent.
+    private static let restDayEvery = 7
+
     private static let key = "bookgate.progress.v1"
+
+    /// Whether a rest day is available on `day` (none spent, or the last one is a full week back).
+    func restDayAvailable(on day: Date = .now) -> Bool {
+        guard let used = restDayUsed else { return true }
+        let cal = Calendar.current
+        let gap = cal.dateComponents([.day], from: cal.startOfDay(for: used),
+                                     to: cal.startOfDay(for: day)).day ?? 99
+        return gap >= Self.restDayEvery
+    }
+
+    /// Whole days between two dates, by calendar day.
+    private func dayGap(from: Date, to: Date, _ cal: Calendar = .current) -> Int {
+        cal.dateComponents([.day], from: cal.startOfDay(for: from),
+                           to: cal.startOfDay(for: to)).day ?? 99
+    }
 
     /// Distinct nights read, all-time.
     var totalNights: Int { nights.count }
@@ -30,12 +54,23 @@ final class ProgressStore {
 
     /// The streak as it stands *today*: the stored streak is only advanced at completion and never
     /// decayed, so a streak whose last night is older than yesterday is already broken — surface 0.
-    var liveStreak: Int {
+    var liveStreak: Int { liveStreak(on: .now) }
+
+    func liveStreak(on now: Date) -> Int {
         guard let last = lastReadDay else { return 0 }
-        let cal = Calendar.current
-        let gap = cal.dateComponents([.day], from: cal.startOfDay(for: last),
-                                     to: cal.startOfDay(for: .now)).day ?? 99
-        return gap <= 1 ? currentStreak : 0
+        let gap = dayGap(from: last, to: now)
+        if gap <= 1 { return currentStreak }
+        // Exactly one night missed, and a rest day is still in hand: the streak is being *spent*,
+        // not broken. Read tonight and it carries straight on.
+        if gap == 2 && restDayAvailable(on: now) { return currentStreak }
+        return 0
+    }
+
+    /// True while the streak is standing on this week's rest day — Today says so, calmly.
+    var onRestDay: Bool {
+        guard let last = lastReadDay else { return false }
+        let gap = dayGap(from: last, to: .now)
+        return gap == 2 && restDayAvailable(on: .now)
     }
 
     /// Whether a session was completed today.
@@ -62,10 +97,15 @@ final class ProgressStore {
         nights[day] = max(nights[day] ?? 0, minutes)
 
         if let last = lastReadDay {
-            if cal.isDate(last, inSameDayAs: now) {
+            let gap = dayGap(from: last, to: now, cal)
+            if gap == 0 {
                 // Already counted today — keep the streak.
-            } else if let yesterday = cal.date(byAdding: .day, value: -1, to: now),
-                      cal.isDate(last, inSameDayAs: yesterday) {
+            } else if gap == 1 {
+                currentStreak += 1
+            } else if gap == 2, restDayAvailable(on: now) {
+                // Exactly one missed night, forgiven by this week's rest day. Record which night it
+                // covered so the next one can't be spent for another seven days.
+                restDayUsed = cal.date(byAdding: .day, value: -1, to: day) ?? day
                 currentStreak += 1
             } else {
                 currentStreak = 1
@@ -93,6 +133,9 @@ final class ProgressStore {
         var lastElapsed: TimeInterval
         var nightDays: [Date]
         var nightMinutes: [Int]
+        /// Added after v1 shipped; absent in older snapshots, which decode as nil (no rest day
+        /// spent yet) — exactly the right default.
+        var restDayUsed: Date?
     }
 
     #if DEBUG
@@ -130,6 +173,7 @@ final class ProgressStore {
         store.bestStreak = snap.bestStreak
         store.lastReadDay = snap.lastReadDay
         store.lastElapsed = snap.lastElapsed
+        store.restDayUsed = snap.restDayUsed
         store.nights = Dictionary(uniqueKeysWithValues:
             zip(snap.nightDays, snap.nightMinutes))
         return store
@@ -139,7 +183,8 @@ final class ProgressStore {
         let days = Array(nights.keys)
         let snap = Snapshot(currentStreak: currentStreak, bestStreak: bestStreak,
                             lastReadDay: lastReadDay, lastElapsed: lastElapsed,
-                            nightDays: days, nightMinutes: days.map { nights[$0] ?? 0 })
+                            nightDays: days, nightMinutes: days.map { nights[$0] ?? 0 },
+                            restDayUsed: restDayUsed)
         if let data = try? JSONEncoder().encode(snap) {
             UserDefaults.standard.set(data, forKey: Self.key)
         }

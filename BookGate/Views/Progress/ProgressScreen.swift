@@ -29,6 +29,7 @@ struct ProgressScreen: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
         }
     }
 
@@ -119,8 +120,9 @@ struct ProgressScreen: View {
         var cells: [Cell] = Array(repeating: .blank, count: mondayIndex)
         let today = cal.startOfDay(for: .now)
         for day in range {
-            guard let date = cal.date(bySetting: .day, value: day, of: first),
-                  let d = cal.date(from: cal.dateComponents([.year, .month, .day], from: date)) else { continue }
+            // `date(bySetting:)` searches forward for the next date with that component and can
+            // land in the wrong month; offsetting from the first of the month cannot.
+            guard let d = cal.date(byAdding: .day, value: day - 1, to: first) else { continue }
             let start = cal.startOfDay(for: d)
             let isFuture = start > today
             let isToday = cal.isDateInToday(start)
@@ -133,6 +135,19 @@ struct ProgressScreen: View {
         let (read, active, minutes) = monthTotals(displayedMonth)
         return Text("\(read) of \(active) nights · \(hoursMinutes(minutes))")
             .font(BGFont.body).foregroundStyle(palette.ink(.body))
+            .accessibilityLabel("\(read) of \(active) reading nights this month, \(hoursMinutes(minutes)) read")
+    }
+
+    /// The nights the alarm is actually set for, Monday-first. A month's denominator has to mean
+    /// *your* reading nights: counting all 31 days told someone who reads weeknights that they had
+    /// missed every weekend they deliberately took off.
+    private var activeNights: [Bool] {
+        services.store.schedule(for: nil)?.days ?? Array(repeating: true, count: 7)
+    }
+
+    private func isActiveNight(_ date: Date) -> Bool {
+        let weekday = cal.component(.weekday, from: date)   // 1=Sun…7=Sat
+        return activeNights[(weekday + 5) % 7]             // 0=Mon…6=Sun
     }
 
     private var legend: some View {
@@ -175,10 +190,11 @@ struct ProgressScreen: View {
         let today = cal.startOfDay(for: .now)
         var read = 0, active = 0, minutes = 0
         for day in range {
-            guard let d = cal.date(bySetting: .day, value: day, of: first) else { continue }
+            guard let d = cal.date(byAdding: .day, value: day - 1, to: first) else { continue }
             let start = cal.startOfDay(for: d)
             if start > today { continue }
-            active += 1
+            if isActiveNight(start) { active += 1 }
+            // A night read off-schedule still counts as read — it just wasn't required.
             if let m = progress.minutes(on: start) { read += 1; minutes += m }
         }
         return (read, active, minutes)
