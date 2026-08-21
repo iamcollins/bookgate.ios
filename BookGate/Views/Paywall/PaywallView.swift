@@ -32,6 +32,17 @@ struct PaywallView: View {
     @State private var message: String?
     @State private var showManage = false
 
+    /// Automatic retries already spent on the catalogue. A first-time reader cannot get past
+    /// this screen without prices, so the screen tries on their behalf before asking them to.
+    @State private var autoRetries = 0
+    /// True while a retry is in flight, so the reader sees "trying" rather than a verdict the
+    /// screen is still working on.
+    @State private var isRetrying = false
+
+    /// Three attempts at 1s, 2s, 4s. Enough to ride out a slow join to a network; short
+    /// enough that a genuinely offline reader is not left watching a spinner.
+    private static let maxAutoRetries = 3
+
     /// Why this screen is being shown, when the store has established it. `nil` while
     /// entitlement is still resolving, and `.neverSubscribed` for the first-run case.
     private var lapse: EntitlementLapse? { services.subscription.lapse }
@@ -98,6 +109,7 @@ struct PaywallView: View {
             // already true, which left onboarding's last step with no way forward.
             if services.subscription.entitlement == .entitled { onSubscribed() }
             await model?.load()
+            await autoRetryWhileFailing()
         }
         .onChange(of: services.subscription.entitlement) { _, now in
             if now == .entitled { onSubscribed() }
@@ -284,19 +296,96 @@ struct PaywallView: View {
             .frame(height: 78)
     }
 
+    /// The reason is shown from the *first* failure, never hidden behind a spinner.
+    ///
+    /// An earlier version showed only "Fetching plans…" until the automatic attempts were
+    /// spent. With a 20-second fetch timeout and three retries that is over a minute of
+    /// telling the reader nothing — measured, not guessed. Now the explanation appears at
+    /// once and the retrying is reported *underneath* it, so they always know what is wrong
+    /// and can act at any point.
     private var unavailableNotice: some View {
         VStack(spacing: 10) {
-            Text("Prices are unavailable right now.")
+            Text(unavailableTitle)
                 .font(BGFont.ui(14, .semibold)).foregroundStyle(palette.ink(.strong))
-            Text("Check your connection and try again.")
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(unavailableDetail)
                 .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-            Button("Try again") { Task { await model?.retry() } }
-                .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if isRetrying {
+                HStack(spacing: 8) {
+                    ProgressView().tint(palette.brassValue).controlSize(.small)
+                    Text("Trying again…")
+                        .font(BGFont.caption).foregroundStyle(palette.ink(.caption))
+                }
                 .frame(height: 44)
+            } else {
+                Button("Try again") { retryNow() }
+                    .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
+                    .frame(height: 44)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(16)
         .glass(.card, cornerRadius: 22)
+    }
+
+    /// The App Store's failures are not all the same, and a reader can act on some of them.
+    /// SubscriptionKit deliberately ships no user-facing strings — these are BookGate's.
+    private var unavailableTitle: String {
+        guard case .failed(let error) = model?.state else {
+            return String(localized: "Plans are unavailable right now.")
+        }
+        switch error {
+        case .timedOut:
+            return String(localized: "The App Store took too long to answer.")
+        case .productsUnavailable:
+            return String(localized: "The App Store returned no plans.")
+        case .underlying:
+            return String(localized: "The App Store couldn't be reached.")
+        }
+    }
+
+    private var unavailableDetail: String {
+        guard case .failed(let error) = model?.state else {
+            return String(localized: "Check your connection and try again.")
+        }
+        switch error {
+        case .timedOut, .underlying:
+            return String(localized: "This is almost always the network. Check your connection and try again.")
+        case .productsUnavailable:
+            // Nothing the reader can do about this one — say so rather than send them to
+            // fiddle with wifi that is working perfectly well.
+            return String(localized: "Nothing is wrong with your connection. Please try again shortly.")
+        }
+    }
+
+    // MARK: Retrying
+
+    /// Retry on the reader's behalf, with a widening gap, before handing them the problem.
+    private func autoRetryWhileFailing() async {
+        while autoRetries < Self.maxAutoRetries {
+            guard case .failed = model?.state else { return }
+            autoRetries += 1
+            isRetrying = true
+            try? await Task.sleep(for: .seconds(pow(2.0, Double(autoRetries - 1))))
+            await model?.retry()
+            isRetrying = false
+        }
+    }
+
+    /// The manual button. Resets the budget, so a reader who waits and taps gets the same
+    /// patient sequence again rather than one lonely attempt.
+    private func retryNow() {
+        autoRetries = 0
+        Task {
+            isRetrying = true
+            await model?.retry()
+            isRetrying = false
+            await autoRetryWhileFailing()
+        }
     }
 
     private func savingsBadge(_ percent: Int) -> some View {
