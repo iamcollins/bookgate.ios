@@ -39,9 +39,9 @@ struct PaywallView: View {
     /// screen is still working on.
     @State private var isRetrying = false
 
-    /// Three attempts at 1s, 2s, 4s. Enough to ride out a slow join to a network; short
-    /// enough that a genuinely offline reader is not left watching a spinner.
-    private static let maxAutoRetries = 3
+    /// Two attempts, 1s apart. Each fetch can itself run the full 20-second timeout, so a
+    /// third pushed the wait past a minute — measured on a forced failure, not guessed.
+    private static let maxAutoRetries = 2
 
     /// Why this screen is being shown, when the store has established it. `nil` while
     /// entitlement is still resolving, and `.neverSubscribed` for the first-run case.
@@ -296,25 +296,30 @@ struct PaywallView: View {
             .frame(height: 78)
     }
 
-    /// One message, one action. The failure modes StoreKit distinguishes — timeout,
-    /// unreachable, no products returned — are not distinctions a reader can act on
-    /// differently, so they are not worth spelling out separately here.
+    /// Two states, never both at once.
+    ///
+    /// While a fetch is genuinely in flight the reader sees only that. The error appears only
+    /// once the attempts are spent. Showing an error *and* a spinner together — which this
+    /// screen briefly did — reads as broken: it announces a verdict it is still working on.
+    ///
+    /// The paywall usually opens with `productLoadState` already `.failed`, because launch's
+    /// own `activate()` has been and failed before this view ever mounts. So the fetching
+    /// state has to be driven by our retry, not by the store's state.
     private var unavailableNotice: some View {
         VStack(spacing: 10) {
-            Text("Unable to fetch the available plans from App Store. Please try again shortly.")
-                .font(BGFont.ui(14, .medium)).foregroundStyle(palette.ink(.strong))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Button { retryNow() } label: {
-                if isRetrying {
-                    ProgressView().tint(palette.brassValue)
-                } else {
-                    Text("Try now").font(BGFont.ui(13, .semibold))
-                }
+            if isRetrying {
+                ProgressView().tint(palette.brassValue)
+                Text("Fetching plans…")
+                    .font(BGFont.ui(14, .medium)).foregroundStyle(palette.ink(.strong))
+            } else {
+                Text("Unable to fetch the available plans from App Store. Please try again shortly.")
+                    .font(BGFont.ui(14, .medium)).foregroundStyle(palette.ink(.strong))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Try now") { retryNow() }
+                    .font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
+                    .frame(height: 44)
             }
-            .foregroundStyle(palette.brassValue)
-            .frame(height: 44)
-            .disabled(isRetrying)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
@@ -329,7 +334,7 @@ struct PaywallView: View {
             guard case .failed = model?.state else { return }
             autoRetries += 1
             isRetrying = true
-            try? await Task.sleep(for: .seconds(pow(2.0, Double(autoRetries - 1))))
+            try? await Task.sleep(for: .seconds(1))
             await model?.retry()
             isRetrying = false
         }
