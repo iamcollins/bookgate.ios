@@ -387,10 +387,13 @@ real mark still needs to be commissioned.
 
 ## Open items — must be resolved before/while building
 
-1. **Prices are placeholders.** Every number on `8f` / `11l` (`€29.99` yearly, `€5.99` monthly,
-   `SAVE 58%`, `€2.50 a month`) is invented for layout. Use real store pricing per market and
-   **compute the savings badge**, never hard-code it. Confirm whether an intro offer or lifetime
-   tier exists — neither is designed.
+1. **Prices are settled.** The plans are `$4.99` monthly and `$29.99` yearly in App Store
+   Connect, and the frames on `8f` / `11l` now carry those numerals. The shipping paywall never
+   renders a figure from this document: every price, the per-month equivalent and the savings
+   badge come from StoreKit at run time, in the reader's own storefront and format, and the badge
+   is **computed** from the two real prices — `SAVE 50%` is what $4.99 × 12 against $29.99 works
+   out to, shown here only so the badge is reviewed at its true width. A **3-day free trial** is
+   configured as an introductory offer on both plans; there is no lifetime tier.
 2. **Onboarding order and length need product sign-off** (see step dots rule above).
 3. **All on-screen labels are design copy.** Titles, row labels, captions, empty states,
    permission explanations and legal footnotes need final product/legal wording. Re-check the four

@@ -31,6 +31,7 @@ final class SubscriptionConfigTests: XCTestCase {
     /// 58% at $5.99).
     ///
     /// This caught exactly that drift: the fixture said $5.99 while the preview said $4.99.
+    /// $4.99 is the real App Store Connect price, so the fixture was the wrong one.
     func testPreviewPricesMatchTheStoreKitFile() throws {
         let fixture = try Self.subscriptionsInStoreKitFile()
         for plan in AppSubscription.previewPlansForTesting {
