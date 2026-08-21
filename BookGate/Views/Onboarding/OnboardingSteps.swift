@@ -381,8 +381,12 @@ struct AddBookStep: View {
 
     private func addIfNeeded() {
         let t = title.trimmingCharacters(in: .whitespaces)
-        guard !t.isEmpty else { return }
-        let book = services.books.add(title: t, status: .reading)
+        // A photographed cover is enough to add the book: OCR often reads the author or a strapline
+        // rather than the title, and silently discarding someone's photo because the title box was
+        // empty lost the whole step's work. The cover is the book's identity until it's renamed.
+        guard !t.isEmpty || coverJPEG != nil else { return }
+        let name = t.isEmpty ? String(localized: "My book") : t
+        let book = services.books.add(title: name, status: .reading)
         if let coverJPEG { services.books.setCover(coverJPEG, for: book) }
     }
 }

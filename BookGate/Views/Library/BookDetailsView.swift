@@ -8,6 +8,13 @@ struct BookDetailsView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
     @Environment(\.dismiss) private var dismiss
+    @State private var player = AudioPlayer()
+    @State private var confirmDelete = false
+    /// Renaming. Cover OCR picks the largest text on a jacket, which is very often the author or a
+    /// strapline — so a wrong title was permanent, on the one screen that is all about that book.
+    @State private var renaming = false
+    @State private var draftTitle = ""
+    @State private var draftAuthor = ""
 
     private var book: Book? { services.books.books.first { $0.id == bookID } }
     private var takeaways: [Takeaway] { book.map { services.takeaways.takeaways(forBook: $0.idString) } ?? [] }
@@ -35,6 +42,23 @@ struct BookDetailsView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .onDisappear { player.stop() }
+        .confirmationDialog("Remove this book?",
+                            isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Remove book", role: .destructive) {
+                if let book { services.books.delete(book) }
+                dismiss()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("Its cover and reading history go with it. Your takeaways are kept.")
+        }
+        .alert("Edit book", isPresented: $renaming) {
+            TextField("Title", text: $draftTitle)
+            TextField("Author", text: $draftAuthor)
+            Button("Save") { saveEdits() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private var backButton: some View {
@@ -70,11 +94,24 @@ struct BookDetailsView: View {
         HStack(alignment: .bottom, spacing: 16) {
             BookCoverView(book: book, image: services.books.coverImage(for: book), width: 104, height: 154)
             VStack(alignment: .leading, spacing: 6) {
-                Text(book.title).font(BGFont.serif(25, .medium))
-                    .foregroundStyle(palette.ink(.hero)).lineLimit(3)
-                if !book.author.isEmpty {
-                    Text(book.author).font(BGFont.body).foregroundStyle(palette.ink(.body))
+                Button { beginRename(book) } label: {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(book.title).font(BGFont.serif(25, .medium))
+                                .foregroundStyle(palette.ink(.hero)).lineLimit(3)
+                                .multilineTextAlignment(.leading)
+                            Image(systemName: "pencil")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(palette.ink(.caption))
+                        }
+                        if !book.author.isEmpty {
+                            Text(book.author).font(BGFont.body).foregroundStyle(palette.ink(.body))
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(book.title). Edit title and author.")
                 statusChip(book.status)
                 Text(sinceLabel(book))
                     .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
@@ -119,8 +156,16 @@ struct BookDetailsView: View {
                 Text("My takeaways").sectionLabel()
                 Spacer()
                 if !takeaways.isEmpty {
-                    Text("Play all \(takeaways.count)")
-                        .font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
+                    // This was plain text pretending to be a button — the count was right and
+                    // nothing happened when you tapped it.
+                    Button {
+                        player.playAll(takeaways.reversed().map { ($0, services.takeaways.audioURL(for: $0)) })
+                    } label: {
+                        Text(player.isPlayingQueue ? "Stop" : "Play all \(takeaways.count)")
+                            .font(BGFont.ui(13, .semibold)).foregroundStyle(palette.brassValue)
+                            .frame(minHeight: 32)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             if takeaways.isEmpty {
@@ -132,40 +177,84 @@ struct BookDetailsView: View {
         }
     }
 
+    /// A takeaway on the book's timeline. It plays here: a reader looking at a book's page is
+    /// exactly the reader who wants to hear what they said about it, and until now this row was
+    /// inert text with an empty quote mark where a transcript would have been.
     private func timelineRow(_ t: Takeaway) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(spacing: 0) {
-                Bookmark(width: 12, height: 17)
-                Rectangle().fill(palette.hairline).frame(width: 1).frame(maxHeight: .infinity)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(dayLabel(t.date)).font(BGFont.ui(13, .semibold)).foregroundStyle(palette.ink(.strong))
-                    Text(durationLabel(t.durationSec)).font(BGFont.mono(12)).foregroundStyle(palette.ink(.secondary))
+        let active = player.currentID == t.id
+        return Button {
+            player.toggle(t, url: services.takeaways.audioURL(for: t))
+        } label: {
+            HStack(alignment: .top, spacing: 14) {
+                VStack(spacing: 0) {
+                    Bookmark(width: 12, height: 17)
+                    Rectangle().fill(palette.hairline).frame(width: 1).frame(maxHeight: .infinity)
                 }
-                Text(t.transcript ?? "“…”")
-                    .font(BGFont.aside(14)).foregroundStyle(palette.ink(.body)).lineLimit(3)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text(dayLabel(t.date)).font(BGFont.ui(13, .semibold)).foregroundStyle(palette.ink(.strong))
+                        Text(durationLabel(t.durationSec)).font(BGFont.mono(12)).foregroundStyle(palette.ink(.secondary))
+                    }
+                    WaveformView(levels: t.waveform ?? [],
+                                 progress: active ? player.progress : 0,
+                                 height: 20)
+                        .frame(height: 20)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(active ? palette.brassValue : palette.ink(.secondary))
+                    .frame(width: 32, height: 32)
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Takeaway from \(dayLabel(t.date)), \(durationLabel(t.durationSec))")
     }
 
-    private func footer(_ book: Book) -> some View {
+    /// What you can do with a book, matched to where it actually is. A book on the *next up* shelf
+    /// used to be offered "Pause reading" — an action for a book it wasn't — and no shelf offered
+    /// any way to remove a book at all.
+    @ViewBuilder private func footer(_ book: Book) -> some View {
         VStack(spacing: 12) {
-            if book.status != .finished {
-                Button(book.status == .paused ? "Resume reading" : "Pause reading") {
-                    services.books.setStatus(book, book.status == .paused ? .reading : .paused)
+            switch book.status {
+            case .reading:
+                Button("Pause reading") { services.books.setStatus(book, .paused) }
+                    .buttonStyle(GlassButtonStyle(minHeight: 50))
+                Button("Mark finished") { services.books.setStatus(book, .finished) }
+                    .buttonStyle(TextButtonStyle(ink: .secondary))
+            case .next, .paused:
+                Button(book.status == .paused ? "Pick it back up" : "Start reading this") {
+                    services.books.startReading(book)
                 }
                 .buttonStyle(GlassButtonStyle(minHeight: 50))
                 Button("Mark finished") { services.books.setStatus(book, .finished) }
                     .buttonStyle(TextButtonStyle(ink: .secondary))
-            } else {
-                Button("Move back to reading") { services.books.startReading(book) }
+            case .finished:
+                Button("Read it again") { services.books.startReading(book) }
                     .buttonStyle(GlassButtonStyle(minHeight: 50))
             }
+            Button("Remove from library") { confirmDelete = true }
+                .buttonStyle(TextButtonStyle(ink: .caption))
+                .padding(.top, 4)
         }
         .padding(.top, 8)
+    }
+
+    private func beginRename(_ book: Book) {
+        draftTitle = book.title
+        draftAuthor = book.author
+        renaming = true
+    }
+
+    private func saveEdits() {
+        guard var book else { return }
+        let t = draftTitle.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return }          // a book with no name is not an improvement
+        book.title = t
+        book.author = draftAuthor.trimmingCharacters(in: .whitespaces)
+        services.books.update(book)
     }
 
     // MARK: Labels

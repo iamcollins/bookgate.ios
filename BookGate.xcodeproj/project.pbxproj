@@ -10,9 +10,19 @@
 		C100000000000000000000C1 /* SubscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C1 /* SubscriptionKit */; };
 		C100000000000000000000C2 /* SubscriptionKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C2 /* SubscriptionKitUI */; };
 		C100000000000000000000C3 /* ShotKit in Frameworks */ = {isa = PBXBuildFile; productRef = C200000000000000000000C3 /* ShotKit */; };
-		DD00000000000000000000DD /* BookGate.storekit in Resources */ = {isa = PBXBuildFile; fileRef = DC00000000000000000000DC /* BookGate.storekit */; };
 		D100000000000000000000C4 /* SubscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = D100000000000000000000C5 /* SubscriptionKit */; };
+		DD00000000000000000000DD /* BookGate.storekit in Resources */ = {isa = PBXBuildFile; fileRef = DC00000000000000000000DC /* BookGate.storekit */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DB00000000000000000000DB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A100000000000000000000A1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A200000000000000000000A2;
+			remoteInfo = BookGate;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		B300000000000000000000B3 /* BookGate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BookGate.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -128,16 +138,6 @@
 		};
 /* End PBXNativeTarget section */
 
-/* Begin PBXContainerItemProxy section */
-		DB00000000000000000000DB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A100000000000000000000A1 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A200000000000000000000A2;
-			remoteInfo = BookGate;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXProject section */
 		A100000000000000000000A1 /* Project object */ = {
 			isa = PBXProject;
@@ -185,14 +185,6 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXTargetDependency section */
-		DA00000000000000000000DA /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A200000000000000000000A2 /* BookGate */;
-			targetProxy = DB00000000000000000000DB /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin PBXResourcesBuildPhase section */
 		B600000000000000000000B6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -227,6 +219,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DA00000000000000000000DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A200000000000000000000A2 /* BookGate */;
+			targetProxy = DB00000000000000000000DB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A500000000000000000000A5 /* Debug */ = {
@@ -350,8 +350,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGN_ENTITLEMENTS = BookGate/BookGate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6Q4N27Q4F3;
 				ENABLE_PREVIEWS = YES;
@@ -382,8 +382,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
 				CODE_SIGN_ENTITLEMENTS = BookGate/BookGate.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6Q4N27Q4F3;
 				ENABLE_PREVIEWS = YES;
@@ -478,6 +478,7 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		C300000000000000000000C1 /* XCRemoteSwiftPackageReference "subscriptionkit-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -519,7 +520,6 @@
 			productName = SubscriptionKit;
 		};
 /* End XCSwiftPackageProductDependency section */
-
 	};
 	rootObject = A100000000000000000000A1 /* Project object */;
 }

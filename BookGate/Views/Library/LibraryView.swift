@@ -31,6 +31,7 @@ struct LibraryView: View {
                 .padding(.bottom, 120)
                 }
                 .scrollContentBackground(.hidden)
+                .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
             }
             .navigationDestination(for: Book.self) { BookDetailsView(bookID: $0.id) }
             .toolbar(.hidden, for: .navigationBar)

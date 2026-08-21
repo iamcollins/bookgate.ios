@@ -30,6 +30,7 @@ struct AddBookView: View {
                     .padding(.bottom, 40)
                 }
                 .scrollContentBackground(.hidden)
+                .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
             }
             .navigationTitle("Add a book")
             .navigationBarTitleDisplayMode(.inline)
