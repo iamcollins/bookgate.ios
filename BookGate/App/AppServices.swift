@@ -101,6 +101,9 @@ final class AppServices {
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
         _ = await subscription.refreshEntitlement()
+        // A session keeps running on the wall clock while the app is suspended; catch the published
+        // numbers up before anything is drawn.
+        session.syncClock()
         session.consumePendingGate()
     }
 

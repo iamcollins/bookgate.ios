@@ -36,6 +36,13 @@ final class SessionCoordinator {
     private(set) var overtimeSecs = 0
     private var sessionTotal = 1
 
+    /// Wall-clock anchors. The session is defined by *when it ends*, not by how many ticks the app
+    /// managed to run: the phone is put down (and often locked) mid-session, which suspends the
+    /// ticker Task and used to freeze — or badly under-count — the clock. Every published value is
+    /// derived from these two dates, so the session stays honest across a background/foreground.
+    private var goalAt: Date?
+    private var overtimeFrom: Date?
+
     /// Remaining fraction 1→0 for the lamp glow (the progress indicator). During overtime the goal
     /// is met, so it reports 0 (glow at minimum) while the extra time counts up separately.
     var remainingFraction: Double {
@@ -144,9 +151,11 @@ final class SessionCoordinator {
     // MARK: Session
 
     /// From the settle screen: start the timed session (shield up).
-    func startSession() {
+    func startSession(now: Date = .now) {
         sessionLengthMinutes = settings.effectiveTonightLength
         sessionTotal = max(1, sessionLengthMinutes * 60)
+        goalAt = now.addingTimeInterval(TimeInterval(sessionTotal))
+        overtimeFrom = nil
         secondsLeft = sessionTotal
         goalReached = false
         inOvertime = false
@@ -167,20 +176,31 @@ final class SessionCoordinator {
         }
     }
 
-    private func tick() {
+    /// Recompute the published clock from the wall-clock anchors. Safe to call at any time — the
+    /// ticker calls it every second, and `AppServices` calls it on every foreground so a session
+    /// that ran while the app was suspended shows the right numbers the instant it comes back.
+    func syncClock(now: Date = .now) {
         guard phase == .session else { return }
-        if inOvertime {
-            overtimeSecs += 1
-        } else if secondsLeft > 0 {
-            secondsLeft -= 1
-            if secondsLeft == 0 { goalReached = true }
+        if let overtimeFrom {
+            overtimeSecs = max(0, Int(now.timeIntervalSince(overtimeFrom).rounded()))
+        }
+        guard let goalAt else { return }
+        let left = Int(goalAt.timeIntervalSince(now).rounded(.up))
+        secondsLeft = max(0, left)
+        if secondsLeft == 0 && !goalReached {
+            goalReached = true
+            Haptics.goalReached()
         }
     }
 
+    private func tick() { syncClock() }
+
     /// At goal: keep reading into overtime (the glow stays at minimum; a brighter arc counts up).
-    func keepReading() {
+    func keepReading(now: Date = .now) {
         guard goalReached else { return }
         inOvertime = true
+        overtimeFrom = now
+        overtimeSecs = 0
     }
 
     /// Finish the session affirmatively (at/after goal, or in overtime) — records the night.
@@ -200,6 +220,7 @@ final class SessionCoordinator {
         ticker?.cancel()
         let minutes = sessionLengthMinutes
         let elapsed = TimeInterval(sessionTotal - secondsLeft) + Double(overtimeSecs)
+        Haptics.success()
         progress.recordNight(minutes: minutes, elapsed: elapsed)
         if let bookId = books.currentReading?.idString {
             books.recordSession(bookId: bookId, minutes: minutes)
@@ -254,6 +275,7 @@ final class SessionCoordinator {
     private func resetSession() {
         ticker?.cancel(); ticker = nil
         secondsLeft = 0; sessionTotal = 1
+        goalAt = nil; overtimeFrom = nil
         goalReached = false; inOvertime = false; overtimeSecs = 0
         capturedPhoto = nil
     }
@@ -266,6 +288,7 @@ final class SessionCoordinator {
             sessionLengthMinutes = settings.effectiveTonightLength
             sessionTotal = max(1, sessionLengthMinutes * 60)
             secondsLeft = Int(Double(sessionTotal) * 0.68)
+            goalAt = Date().addingTimeInterval(TimeInterval(secondsLeft))
         case .complete, .takeaway, .stepup:
             completedMinutes = settings.effectiveTonightLength
             completedStreak = progress.liveStreak
