@@ -1,9 +1,16 @@
 import SwiftUI
 
-/// The session (screen 4a). The top is empty on purpose. A lamp glow sits high and **its radius is
-/// the progress indicator — it shrinks as the session burns down** (100%→~12%). No ring, no bar, no
-/// edge track. Lower third: remaining time (ink .52) + "LEFT OF N MINUTES" (ink .44). Actions are
-/// quiet text. At goal, the user may Keep Reading into overtime.
+/// The session (screen 4a).
+///
+/// One idea, carried the whole way: **a lamp above a reader, burning down.** The glow is the only
+/// progress indicator — no ring, no bar, no edge track — and everything you actually need to read
+/// (the book, the time left) sits *inside* that pool of light, so the light is lighting something
+/// rather than decorating an empty screen. As the session burns down the pool contracts and the
+/// room around it deepens, until at the goal there is just an ember and the words go quiet.
+///
+/// Composition, top to bottom: a whispered shield line at the top edge; the lit block centred (book
+/// · time · "left of N minutes" · the one aside); the actions resting at the bottom. Nothing floats
+/// in the middle distance.
 struct SessionView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
@@ -12,44 +19,75 @@ struct SessionView: View {
     private var session: SessionCoordinator { services.session }
     private var book: Book? { services.books.currentReading }
 
-    /// Lamp radius scale: full at start, ~12% at goal.
+    /// Lamp radius: full at the start, an ember at the goal. Never quite zero — the reader is still
+    /// there.
     private var glowScale: CGFloat {
-        0.12 + 0.88 * CGFloat(session.remainingFraction)
+        session.inOvertime ? 0.16 : 0.16 + 0.84 * CGFloat(session.remainingFraction)
     }
+
+    /// How far the room has darkened, 0 (start) → 1 (goal).
+    private var settled: Double {
+        session.inOvertime ? 1 : 1 - session.remainingFraction
+    }
+
+    /// The lit block sits a little above centre — where a lamp's pool naturally falls, and clear of
+    /// the actions.
+    private let lightCentre: CGFloat = 0.44
 
     private var shieldLabel: String {
         let n = services.shield.shieldedCount
-        return n > 0 ? String(localized: "\(n) apps shielded").uppercased() : String(localized: "Quiet session").uppercased()
+        return n > 0 ? String(localized: "\(n) apps shielded").uppercased()
+                     : String(localized: "Quiet session").uppercased()
     }
 
     var body: some View {
-        ZStack {
-            palette.base.ignoresSafeArea()
-            lamp
-            content
-        }
-    }
-
-    // MARK: Lamp glow (the progress indicator)
-
-    private var lamp: some View {
         GeometryReader { geo in
-            let base = min(geo.size.width, geo.size.height) * 1.05
-            Circle()
-                .fill(RadialGradient(
-                    stops: [
-                        .init(color: Color(hex: 0xF0C68F, opacity: 0.42), location: 0),
-                        .init(color: Color(hex: 0xD79A56, opacity: 0.14), location: 0.46),
-                        .init(color: .clear, location: 0.68),
-                    ],
-                    center: .center, startRadius: 0, endRadius: base * 0.5))
-                .frame(width: base, height: base)
-                .scaleEffect(session.inOvertime ? 0.12 : glowScale)
-                .blur(radius: 26)
-                .position(x: geo.size.width / 2, y: 150)
-                .animation(reduceMotion ? nil : .linear(duration: 1), value: glowScale)
+            ZStack {
+                palette.base.ignoresSafeArea()
+                lamp(in: geo.size)
+                vignette(in: geo.size)
+                content
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .ignoresSafeArea()
+        .animation(reduceMotion ? nil : .easeInOut(duration: 1.2), value: glowScale)
+    }
+
+    // MARK: The lamp — the progress indicator
+
+    private func lamp(in size: CGSize) -> some View {
+        // Sized off the diagonal so the pool is generous on every device, and centred exactly on
+        // the lit block below.
+        let base = max(size.width, size.height) * 1.15
+        return Circle()
+            .fill(RadialGradient(
+                stops: [
+                    .init(color: Color(hex: 0xFFD9A6, opacity: 0.30), location: 0.00),
+                    .init(color: Color(hex: 0xF0C68F, opacity: 0.20), location: 0.22),
+                    .init(color: Color(hex: 0xD79A56, opacity: 0.085), location: 0.48),
+                    .init(color: .clear, location: 0.76),
+                ],
+                center: .center, startRadius: 0, endRadius: base * 0.5))
+            .frame(width: base, height: base)
+            .scaleEffect(glowScale)
+            .blur(radius: 34)
+            .position(x: size.width / 2, y: size.height * lightCentre)
+            .accessibilityHidden(true)
+    }
+
+    /// The room settling in around the reader. Deepens as the light contracts, so the end of a
+    /// session *feels* later than the start of one.
+    private func vignette(in size: CGSize) -> some View {
+        RadialGradient(
+            stops: [
+                .init(color: .clear, location: 0.0),
+                .init(color: Color(hex: 0x0A0705, opacity: 0.30 + 0.42 * settled), location: 1.0),
+            ],
+            center: UnitPoint(x: 0.5, y: lightCentre),
+            startRadius: size.width * 0.20,
+            endRadius: size.width * 1.05)
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
@@ -57,53 +95,68 @@ struct SessionView: View {
 
     private var content: some View {
         VStack(spacing: 0) {
-            Spacer().frame(height: 96)   // top empty on purpose
-            insideLight
-            Spacer()
-            lowerThird
+            Text(shieldLabel)
+                .font(BGFont.ui(10.5, .medium)).tracking(1.6)
+                .foregroundStyle(palette.ink(.caption))
+            Spacer(minLength: 20)
+            litBlock
+            Spacer(minLength: 20)
             actions
         }
-        .padding(.horizontal, 26)
-        .padding(.bottom, 44)
+        .padding(.horizontal, 30)
+        .padding(.top, 74)
+        .padding(.bottom, 54)
     }
 
-    private var insideLight: some View {
-        VStack(spacing: 12) {
-            Text(book?.title ?? "Your book")
-                .font(BGFont.serif(27, .medium))
-                .foregroundStyle(palette.ink(.hero))
+    /// Everything the light is actually lighting. One group, one rhythm — the book it belongs to,
+    /// the time that remains, and the single line of reassurance.
+    private var litBlock: some View {
+        VStack(spacing: 0) {
+            Text(book?.title ?? String(localized: "Your book"))
+                .font(BGFont.serif(21, .regular))
+                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.62))
                 .multilineTextAlignment(.center)
-            Text(shieldLabel)
-                .font(BGFont.ui(12, .medium)).tracking(1.4)
-                .foregroundStyle(palette.ink(.secondary))
-            Rectangle().fill(palette.ink(.caption)).frame(width: 34, height: 1)
-            Text(session.inOvertime ? "Stop whenever the chapter lets you." : "The light goes out when you're done.")
+                .lineLimit(2)
+
+            Spacer().frame(height: 18)
+
+            Text(session.inOvertime ? "+\(timeString(session.overtimeSecs))"
+                                    : timeString(session.secondsLeft))
+                .font(BGFont.serif(76, .light))
+                .monospacedDigit()
+                .foregroundStyle(Color(hex: 0xFBF3E7, opacity: session.inOvertime ? 0.80 : 0.94))
+                .contentTransition(.numericText(countsDown: !session.inOvertime))
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.28), value: session.secondsLeft)
+                .accessibilityLabel(timeAccessibilityLabel)
+
+            Spacer().frame(height: 10)
+
+            Text(session.inOvertime
+                 ? String(localized: "Past your \(session.sessionLengthMinutes) minutes").uppercased()
+                 : String(localized: "Left of \(session.sessionLengthMinutes) minutes").uppercased())
+                .font(BGFont.ui(10.5, .medium)).tracking(1.5)
+                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.42))
+
+            Spacer().frame(height: 30)
+
+            Rectangle()
+                .fill(Color(hex: 0xF2D6AB, opacity: 0.22))
+                .frame(width: 30, height: 1)
+
+            Spacer().frame(height: 22)
+
+            Text(asideCopy)
                 .font(BGFont.aside(15))
-                .foregroundStyle(palette.ink(.body))
+                .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.52))
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var lowerThird: some View {
-        VStack(spacing: 6) {
-            if session.inOvertime {
-                Text("Goal met · Reading on").sectionLabel(color: Color(hex: 0xF2D6AB, opacity: 0.75))
-                Text("+\(timeString(session.overtimeSecs))")
-                    .font(BGFont.serif(30, .regular)).monospacedDigit()
-                    .foregroundStyle(Color(hex: 0xF2D6AB, opacity: 0.85))
-                Text("Past your \(session.sessionLengthMinutes) minutes")
-                    .font(BGFont.ui(10.5, .medium)).tracking(1.2).textCase(.uppercase)
-                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.44))
-            } else {
-                Text(timeString(session.secondsLeft))
-                    .font(BGFont.serif(30, .regular)).monospacedDigit()
-                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.52))
-                Text("Left of \(session.sessionLengthMinutes) minutes")
-                    .font(BGFont.ui(10.5, .medium)).tracking(1.2).textCase(.uppercase)
-                    .foregroundStyle(Color(hex: 0xF7EFE4, opacity: 0.44))
-            }
-        }
-        .padding(.bottom, 22)
+    private var asideCopy: String {
+        if session.inOvertime { return String(localized: "Stop whenever the chapter lets you.") }
+        if session.goalReached { return String(localized: "That's your night. The light is out.") }
+        return String(localized: "The light goes out when you're done.")
     }
 
     @ViewBuilder private var actions: some View {
@@ -115,14 +168,15 @@ struct SessionView: View {
                     .buttonStyle(TextButtonStyle(ink: .body))
             }
         } else if session.inOvertime {
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Button("Finish Session") { session.finishSession() }
                     .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
                 Text("Shield stays on until you finish")
-                    .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    .font(BGFont.caption).foregroundStyle(palette.ink(.caption))
             }
         } else {
-            VStack(spacing: 10) {
+            // Mid-session the screen should ask nothing of you: both ways out are quiet text.
+            VStack(spacing: 14) {
                 Button("Finish Session") { session.finishSession() }
                     .buttonStyle(TextButtonStyle(ink: .body))
                 Button("End Early") { session.endEarly() }
@@ -131,8 +185,18 @@ struct SessionView: View {
         }
     }
 
+    // MARK: Labels
+
     private func timeString(_ seconds: Int) -> String {
         let m = seconds / 60, s = seconds % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private var timeAccessibilityLabel: String {
+        let secs = session.inOvertime ? session.overtimeSecs : session.secondsLeft
+        let m = secs / 60, s = secs % 60
+        return session.inOvertime
+            ? String(localized: "\(m) minutes \(s) seconds past your goal")
+            : String(localized: "\(m) minutes \(s) seconds left")
     }
 }

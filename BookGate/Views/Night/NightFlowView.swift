@@ -22,5 +22,8 @@ struct NightFlowView: View {
         }
         .animation(.easeInOut(duration: 0.5), value: session.phase)
         .nightFlow()
+        // Everything in here is looked at while both hands are busy with a book — never let the
+        // screen blank mid-scan or put the session lamp out. See `keepAwake`.
+        .keepAwake(session.phase != .idle)
     }
 }
