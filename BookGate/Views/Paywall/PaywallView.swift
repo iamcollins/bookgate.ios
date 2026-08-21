@@ -296,70 +296,29 @@ struct PaywallView: View {
             .frame(height: 78)
     }
 
-    /// The reason is shown from the *first* failure, never hidden behind a spinner.
-    ///
-    /// An earlier version showed only "Fetching plans…" until the automatic attempts were
-    /// spent. With a 20-second fetch timeout and three retries that is over a minute of
-    /// telling the reader nothing — measured, not guessed. Now the explanation appears at
-    /// once and the retrying is reported *underneath* it, so they always know what is wrong
-    /// and can act at any point.
+    /// One message, one action. The failure modes StoreKit distinguishes — timeout,
+    /// unreachable, no products returned — are not distinctions a reader can act on
+    /// differently, so they are not worth spelling out separately here.
     private var unavailableNotice: some View {
         VStack(spacing: 10) {
-            Text(unavailableTitle)
-                .font(BGFont.ui(14, .semibold)).foregroundStyle(palette.ink(.strong))
+            Text("Unable to fetch the available plans from App Store. Please try again shortly.")
+                .font(BGFont.ui(14, .medium)).foregroundStyle(palette.ink(.strong))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(unavailableDetail)
-                .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if isRetrying {
-                HStack(spacing: 8) {
-                    ProgressView().tint(palette.brassValue).controlSize(.small)
-                    Text("Trying again…")
-                        .font(BGFont.caption).foregroundStyle(palette.ink(.caption))
+            Button { retryNow() } label: {
+                if isRetrying {
+                    ProgressView().tint(palette.brassValue)
+                } else {
+                    Text("Try now").font(BGFont.ui(13, .semibold))
                 }
-                .frame(height: 44)
-            } else {
-                Button("Try again") { retryNow() }
-                    .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
-                    .frame(height: 44)
             }
+            .foregroundStyle(palette.brassValue)
+            .frame(height: 44)
+            .disabled(isRetrying)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
         .glass(.card, cornerRadius: 22)
-    }
-
-    /// The App Store's failures are not all the same, and a reader can act on some of them.
-    /// SubscriptionKit deliberately ships no user-facing strings — these are BookGate's.
-    private var unavailableTitle: String {
-        guard case .failed(let error) = model?.state else {
-            return String(localized: "Plans are unavailable right now.")
-        }
-        switch error {
-        case .timedOut:
-            return String(localized: "The App Store took too long to answer.")
-        case .productsUnavailable:
-            return String(localized: "The App Store returned no plans.")
-        case .underlying:
-            return String(localized: "The App Store couldn't be reached.")
-        }
-    }
-
-    private var unavailableDetail: String {
-        guard case .failed(let error) = model?.state else {
-            return String(localized: "Check your connection and try again.")
-        }
-        switch error {
-        case .timedOut, .underlying:
-            return String(localized: "This is almost always the network. Check your connection and try again.")
-        case .productsUnavailable:
-            // Nothing the reader can do about this one — say so rather than send them to
-            // fiddle with wifi that is working perfectly well.
-            return String(localized: "Nothing is wrong with your connection. Please try again shortly.")
-        }
     }
 
     // MARK: Retrying
