@@ -1,0 +1,26 @@
+{
+  "configurations" : [
+    {
+      "id" : "F1D40A8C-6C51-4E1B-9E30-2C2A1E7F5B90",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "storeKitConfigurationFileReference" : {
+      "identifier" : "BookGate.storekit"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:BookGate.xcodeproj",
+        "identifier" : "D100000000000000000000D1",
+        "name" : "BookGateTests"
+      }
+    }
+  ],
+  "version" : 1
+}

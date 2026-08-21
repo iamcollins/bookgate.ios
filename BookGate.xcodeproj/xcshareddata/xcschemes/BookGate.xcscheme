@@ -40,6 +40,12 @@
             </BuildableReference>
          </TestableReference>
       </Testables>
+      <TestPlans>
+         <TestPlanReference
+            reference = "container:BookGate.xctestplan"
+            default = "YES">
+         </TestPlanReference>
+      </TestPlans>
       <StoreKitConfigurationFileReference
          identifier = "../BookGate.storekit">
       </StoreKitConfigurationFileReference>

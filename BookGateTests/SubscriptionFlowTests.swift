@@ -35,37 +35,60 @@ final class SubscriptionFlowTests: XCTestCase {
         super.tearDown()
     }
 
-    /// Whether `SKTestSession` is actually intercepting StoreKit in this process. Probed once per
-    /// run and cached, because the probe costs a catalogue fetch.
+    /// Whether `SKTestSession` is actually intercepting StoreKit in this process. Probed once
+    /// per run and cached — the answer cannot change mid-run.
     ///
-    /// **Why a probe and not just "did products load".** The original guard skipped when the
-    /// catalogue came back empty. That stopped working the moment the products went live in App
-    /// Store Connect: StoreKit now resolves them from the *real sandbox* App Store, so the
-    /// catalogue is not empty, nothing skips — and then every case that purchases or restores
-    /// raises a real "Sign in to Apple Account" sheet and burns its full timeout. A fifteen-minute
-    /// red suite that proves nothing is worse than an honest skip.
+    /// **Why a skip exists at all.** When the session is not in control, StoreKit falls through
+    /// to the real App Store, and a `restore()` there reaches `AppStore.sync()`, which raises a
+    /// "Sign in to Apple Account" sheet and stalls the run until its timeout. An honest skip
+    /// beats a red suite that proves nothing.
     ///
-    /// The tell is the storefront: `SKTestSession.storefront` only moves prices when the session is
-    /// in control. If asking for Japan still returns dollars, StoreKit is not listening to us.
+    /// **Why this probe and not the storefront.** The previous version set
+    /// `session.storefront = "JPN"` and checked whether prices came back in yen. That is a proxy
+    /// with at least two false-negative modes — `Product.products(for:)` caches per process, and
+    /// a storefront change does not propagate synchronously — so it could report "not
+    /// intercepting" about a session that was working perfectly well. It is replaced with the
+    /// direct question: buy something locally and see whether the transaction lands. If the
+    /// session is inert this throws immediately, with no dialog and no hang.
     private func skipUnlessStoreKitIsLocal() async throws {
         if Self.storeKitIsLocal == nil {
-            let original = session.storefront
-            session.storefront = "JPN"
-            let probe = SubscriptionStore(config: AppSubscription.config)
-            await probe.loadProducts()
-            Self.storeKitIsLocal = !probe.products.isEmpty
-                && probe.products.allSatisfy { $0.displayPrice.contains("¥") }
-            session.storefront = original
+            Self.storeKitIsLocal = await Self.canTransactLocally(in: session)
         }
         guard Self.storeKitIsLocal == true else {
             throw XCTSkip("""
-                SKTestSession is not intercepting StoreKit in this process, so the products                 resolving here come from the real sandbox App Store. Purchases and restores would                 raise a system sign-in sheet and hang the run rather than test anything.                 Run this suite from Xcode with the BookGate.storekit configuration attached to the                 scheme, or on a device signed into a sandbox account.
+                A local StoreKit purchase did not land, so `SKTestSession` is not intercepting \
+                StoreKit in this process and these cases would run against the real App Store — \
+                where a restore raises a sign-in sheet and stalls the run. \
+                Diagnostic from the probe: \(Self.probeDiagnostic ?? "none"). \
+                Run from Xcode with BookGate.storekit on the scheme, or on a device signed into \
+                a sandbox account.
                 """)
         }
     }
 
+    /// The direct signal: buy a product through the test session and check a transaction exists.
+    /// Cleans up after itself so the case that follows starts from nothing.
+    private static func canTransactLocally(in session: SKTestSession) async -> Bool {
+        // Both halves of the picture: what the catalogue says, and whether a local purchase
+        // lands. A live-but-empty session and an inert one look identical from either alone.
+        let resolved = (try? await Product.products(for: Array(AppSubscription.config.entitlementProductIDs))) ?? []
+        let catalogue = "products resolved: \(resolved.count) [\(resolved.map { "\($0.id)=\($0.displayPrice)" }.joined(separator: ", "))]"
+        do {
+            try await session.buyProduct(identifier: AppSubscription.monthlyID)
+        } catch {
+            probeDiagnostic = "buyProduct threw: \(error); \(catalogue)"
+            return false
+        }
+        let landed = session.allTransactions().contains { $0.productIdentifier == AppSubscription.monthlyID }
+        session.clearTransactions()
+        if !landed { probeDiagnostic = "buyProduct succeeded but no transaction was recorded" }
+        return landed
+    }
+
     /// Probed once for the whole suite — the answer cannot change mid-run.
     private static var storeKitIsLocal: Bool?
+    /// Whatever the probe learned, surfaced in the skip message so a skip is never a dead end.
+    private static var probeDiagnostic: String?
 
     /// An activated store, or a skipped test.
     ///

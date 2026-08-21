@@ -1,5 +1,15 @@
 {
-  "identifier": "A1B2C3D4-0000-0000-0000-BOOKGATESTORE",
+  "appPolicies": {
+    "eula": "",
+    "policies": [
+      {
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": ""
+      }
+    ]
+  },
+  "identifier": "71C3AC94-D880-4C2E-AF33-B7A5F4F40F55",
   "nonRenewingSubscriptions": [],
   "products": [],
   "settings": {
@@ -13,8 +23,14 @@
   },
   "subscriptionGroups": [
     {
-      "id": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
-      "localizations": [],
+      "id": "886D92CA-25CC-4311-85CA-A634DBA76A19",
+      "localizations": [
+        {
+          "description": "BookGate",
+          "displayName": "BookGate",
+          "locale": "en_US"
+        }
+      ],
       "name": "BookGate",
       "subscriptions": [
         {
@@ -23,10 +39,10 @@
           "displayPrice": "4.99",
           "familyShareable": false,
           "groupNumber": 1,
-          "internalID": "C1000001-0000-0000-0000-BOOKGATEMON01",
+          "internalID": "BD1EA43E-B350-44C2-AD64-35FA14169BD5",
           "introductoryOffer": {
             "displayPrice": "0",
-            "internalID": "D1000001-0000-0000-0000-BOOKGATETRLM",
+            "internalID": "920D5B32-159D-4C28-A4E2-916BAD8CF2A3",
             "paymentMode": "free",
             "subscriptionPeriod": "P3D"
           },
@@ -40,7 +56,7 @@
           "productID": "com.bookgate.premium.monthly",
           "recurringSubscriptionPeriod": "P1M",
           "referenceName": "BookGate Monthly",
-          "subscriptionGroupID": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
+          "subscriptionGroupID": "886D92CA-25CC-4311-85CA-A634DBA76A19",
           "type": "RecurringSubscription"
         },
         {
@@ -49,10 +65,10 @@
           "displayPrice": "29.99",
           "familyShareable": false,
           "groupNumber": 1,
-          "internalID": "C1000002-0000-0000-0000-BOOKGATEYR001",
+          "internalID": "8EE7283F-A5DB-4BFA-9445-1FB5A8CA543D",
           "introductoryOffer": {
             "displayPrice": "0",
-            "internalID": "D1000002-0000-0000-0000-BOOKGATETRLY",
+            "internalID": "B8645E0C-39CF-4170-AB0D-97E11A419671",
             "paymentMode": "free",
             "subscriptionPeriod": "P3D"
           },
@@ -66,7 +82,7 @@
           "productID": "com.bookgate.premium.yearly",
           "recurringSubscriptionPeriod": "P1Y",
           "referenceName": "BookGate Yearly",
-          "subscriptionGroupID": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
+          "subscriptionGroupID": "886D92CA-25CC-4311-85CA-A634DBA76A19",
           "type": "RecurringSubscription"
         }
       ]
