@@ -24,6 +24,11 @@ struct PaywallView: View {
     @Environment(\.bgPalette) private var palette
     @State private var model: PaywallModel?
     @State private var message: String?
+    /// What StoreKit answered, shown whenever prices did not resolve. Not DEBUG-gated on purpose —
+    /// this app is tested through TestFlight, where there are no logs to read. See
+    /// `PaywallDiagnostics`; remove before the App Store build.
+    /// Only the network-bound half is stored; the rest is read live (see `PaywallDiagnostics`).
+    @State private var storeEnvironment = ""
 
     var body: some View {
         ZStack {
@@ -41,6 +46,9 @@ struct PaywallView: View {
 
                     timeline
                     plans
+                    if (model?.state ?? .idle) != .ready {
+                        diagnosticsPanel
+                    }
                     cta
 
                     if let message {
@@ -59,9 +67,13 @@ struct PaywallView: View {
             // already true, which left onboarding's last step with no way forward.
             if services.subscription.entitlement == .entitled { onSubscribed() }
             await model?.load()
+            await refreshDiagnostics()
         }
         .onChange(of: services.subscription.entitlement) { _, now in
             if now == .entitled { onSubscribed() }
+        }
+        .onChange(of: model?.state) { _, _ in
+            Task { await refreshDiagnostics() }
         }
     }
 
@@ -156,13 +168,40 @@ struct PaywallView: View {
                 .font(BGFont.ui(14, .semibold)).foregroundStyle(palette.ink(.strong))
             Text("Check your connection and try again.")
                 .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-            Button("Try again") { Task { await model?.retry() } }
+            Button("Try again") { Task { await model?.retry(); await refreshDiagnostics() } }
                 .font(BGFont.ui(13, .medium)).foregroundStyle(palette.brassValue)
                 .frame(height: 44)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
         .glass(.card, cornerRadius: 22)
+    }
+
+    /// Verbatim, monospaced, selectable — it exists to be read off a screenshot or copied out of
+    /// a TestFlight build, not to look nice.
+    private var diagnosticsPanel: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("STOREKIT").sectionLabel(color: palette.ink(.caption))
+            Text(PaywallDiagnostics.live(store: services.subscription)
+                    + (storeEnvironment.isEmpty ? "" : "\n" + storeEnvironment))
+                .font(BGFont.mono(10))
+                .foregroundStyle(palette.ink(.secondary))
+                .multilineTextAlignment(.leading)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(palette.recess)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(palette.hairline, lineWidth: 1))
+        }
+    }
+
+    private func refreshDiagnostics() async {
+        storeEnvironment = await PaywallDiagnostics.environment()
     }
 
     private func savingsBadge(_ percent: Int) -> some View {
