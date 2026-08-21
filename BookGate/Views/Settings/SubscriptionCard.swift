@@ -66,12 +66,23 @@ struct SubscriptionCard: View {
                     .foregroundStyle(palette.actionText)
                     .padding(.horizontal, 9).padding(.vertical, 3)
                     .background(Capsule().fill(palette.brassObject))
+            } else if let lapse = store.lapse, lapse.reason != .neverSubscribed {
+                Text("ENDED")
+                    .font(BGFont.ui(9.5, .bold)).tracking(0.8)
+                    .foregroundStyle(palette.ink(.secondary))
+                    .padding(.horizontal, 9).padding(.vertical, 3)
+                    .background(Capsule().strokeBorder(palette.hairline, lineWidth: 1))
             }
         }
     }
 
     private var planTitle: String {
-        guard store.isEntitled else { return String(localized: "No subscription") }
+        guard store.isEntitled else {
+            guard let lapse = store.lapse, lapse.reason != .neverSubscribed else {
+                return String(localized: "No subscription")
+            }
+            return String(localized: "Subscription ended")
+        }
         guard let id = detail?.productID else { return String(localized: "BookGate") }
         switch id {
         case AppSubscription.yearlyID:  return String(localized: "BookGate · Yearly")
@@ -82,7 +93,10 @@ struct SubscriptionCard: View {
 
     private var planDetail: String {
         guard store.isEntitled else {
-            return String(localized: "Your reading alarm needs an active plan.")
+            guard let lapse = store.lapse else {
+                return String(localized: "Your reading alarm needs an active plan.")
+            }
+            return LapseCopy.settingsDetail(lapse, planName: lapsedPlanName)
         }
         if detail?.isFamilyShared == true {
             return String(localized: "Shared with you through Family Sharing.")
@@ -90,12 +104,23 @@ struct SubscriptionCard: View {
         guard let expires = detail?.expirationDate else {
             return String(localized: "Active.")
         }
-        let when = expires.formatted(.dateTime.day().month(.wide))
+        // A bare date is useless when the date is today — a sandbox subscription renewing
+        // in five minutes read as "Renews 21 August", which is exactly how a mid-session
+        // lapse looked like an app bug rather than an expiry.
+        let when = LapseCopy.precise(expires)
         if detail?.isIntroductoryOffer == true {
             // The one date that matters during a trial is the day money starts.
             return String(localized: "Free until \(when), then it renews.")
         }
         return String(localized: "Renews \(when).")
+    }
+
+    private var lapsedPlanName: String? {
+        switch store.lapse?.productID {
+        case AppSubscription.yearlyID:  return String(localized: "Yearly plan")
+        case AppSubscription.monthlyID: return String(localized: "Monthly plan")
+        default: return nil
+        }
     }
 
     private var billingNote: String? {

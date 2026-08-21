@@ -38,6 +38,9 @@ enum AppSubscription {
     private static var debugOverrides: DebugOverrides {
         #if DEBUG
         .init(forceEntitledEnvironment: .init(key: "BOOKGATE_PRO", value: "1"),
+              // BOOKGATE_LAPSE=cancelled|billingFailed|refunded|expired|… — review the
+              // lapse copy without waiting for a subscription to actually end.
+              forceLapseEnvironment: "BOOKGATE_LAPSE",
               previewPlans: previewPlans)
         #else
         .none

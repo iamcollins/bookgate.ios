@@ -33,6 +33,41 @@ struct PaywallView: View {
     /// the "prices unavailable" notice — still reachable from a TestFlight build with no logs to
     /// read, without putting monospaced debug text on the screen that asks for money.
     @State private var showDiagnostics = false
+    @State private var showManage = false
+
+    /// Why this screen is being shown, when the store has established it. `nil` while
+    /// entitlement is still resolving, and `.neverSubscribed` for the first-run case.
+    private var lapse: EntitlementLapse? { services.subscription.lapse }
+
+    /// Whether a returning reader has actually ended, rather than never started.
+    private var hasLapsed: Bool {
+        guard let lapse else { return false }
+        return lapse.reason != .neverSubscribed
+    }
+
+    /// Whether a *free trial* is genuinely on the table for the selected plan.
+    ///
+    /// The three-day timeline used to be static copy shown to everyone. Someone who has
+    /// already used their trial is not eligible for another, so they were being told
+    /// "three days on us" above a button that said "Subscribe" — a misleading subscription
+    /// presentation, and the sort of thing App Review rejects for.
+    private var trialIsOnOffer: Bool {
+        // Someone who has had a subscription before has already used the introductory
+        // offer — Apple allows one per subscription group per account. StoreKit reports
+        // that itself, but only once eligibility resolves, so this states it outright:
+        // a returning reader is never promised a free trial.
+        guard !hasLapsed else { return false }
+        return model?.selectedPlan?.introOffer?.paymentMode == .freeTrial
+    }
+
+    /// The plan that ended, in words, for the lapse copy.
+    private var lapsedPlanName: String? {
+        switch lapse?.productID {
+        case AppSubscription.yearlyID:  return String(localized: "yearly plan")
+        case AppSubscription.monthlyID: return String(localized: "monthly plan")
+        default: return nil
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -77,12 +112,12 @@ struct PaywallView: View {
             Spacer().frame(height: tight ? 8 : 16)
             Bookmark(width: 38, height: 52)
             Spacer().frame(height: tight ? 14 : 20)
-            Text("Make reading a daily reality.")
+            Text(headline)
                 .font(BGFont.serif(tight ? 28 : 31, .medium)).foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer().frame(height: 10)
-            Text("Your book, your time, your shield — three days on us.")
+            Text(subhead)
                 .font(BGFont.aside(15)).foregroundStyle(palette.ink(.body))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -90,8 +125,14 @@ struct PaywallView: View {
             // Only two gaps flex. The offer — timeline then prices — has to read as one block, so
             // the space a tall phone has spare goes above it and below it, never through it.
             Spacer(minLength: tight ? 16 : 22)
-            timeline
-            Spacer().frame(height: tight ? 12 : 16)
+            // A trial timeline only when there is a trial; otherwise the reason they're here.
+            if trialIsOnOffer {
+                timeline
+                Spacer().frame(height: tight ? 12 : 16)
+            } else if hasLapsed {
+                keptSafeNotice
+                Spacer().frame(height: tight ? 12 : 16)
+            }
             plans
             Spacer(minLength: tight ? 16 : 22)
             cta
@@ -105,6 +146,40 @@ struct PaywallView: View {
             footer
             Spacer().frame(height: tight ? 4 : 10)
         }
+    }
+
+    private var headline: String {
+        guard let lapse else { return String(localized: "Make reading a daily reality.") }
+        return LapseCopy.title(lapse)
+    }
+
+    private var subhead: String {
+        guard let lapse else {
+            return String(localized: "Your book, your time, your shield — three days on us.")
+        }
+        return LapseCopy.detail(lapse, planName: lapsedPlanName)
+    }
+
+    /// Shown instead of the trial timeline to a reader who has lapsed. Nothing of theirs is
+    /// gone, and saying so is worth more here than a sales point — the fear on this screen
+    /// is "have I lost my streak", not "is this good value".
+    private var keptSafeNotice: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.open")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(palette.brassValue).frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Nothing has been deleted")
+                    .font(BGFont.ui(13.5, .semibold)).foregroundStyle(palette.ink(.strong))
+                Text("Your library, your takeaways and your streak are on this phone, exactly as you left them.")
+                    .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glass(.card, cornerRadius: 22)
     }
 
     // MARK: Trial timeline (before the price)
@@ -254,17 +329,34 @@ struct PaywallView: View {
 
     // MARK: CTA + footer
 
-    private var cta: some View {
-        Button { purchase() } label: {
-            if model?.isBusy == true { ProgressView().tint(palette.actionText) }
-            else { Text(ctaLabel) }
+    @ViewBuilder private var cta: some View {
+        if let lapse, LapseCopy.needsPaymentFix(lapse) {
+            // Selling to someone whose card expired is answering the wrong question. The
+            // subscription still exists; it just can't be charged, and only the App Store
+            // can fix that.
+            VStack(spacing: 12) {
+                Button("Update payment method") { showManage = true }
+                    .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+                Button("Choose a different plan") { purchase() }
+                    .buttonStyle(TextButtonStyle(ink: .secondary))
+                    .disabled(!(model?.canPurchase ?? false))
+            }
+            .manageSubscriptionsSheet(isPresented: $showManage)
+        } else {
+            Button { purchase() } label: {
+                if model?.isBusy == true { ProgressView().tint(palette.actionText) }
+                else { Text(ctaLabel) }
+            }
+            .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
+            .disabled(!(model?.canPurchase ?? false))
         }
-        .buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
-        .disabled(!(model?.canPurchase ?? false))
     }
 
     private var ctaLabel: String {
-        guard let span = model?.selectedPlan.flatMap(freeTrialSpan) else { return String(localized: "Subscribe") }
+        guard trialIsOnOffer,
+              let span = model?.selectedPlan.flatMap(freeTrialSpan)
+        else { return hasLapsed ? String(localized: "Start reading again")
+                                : String(localized: "Subscribe") }
         return String(localized: "Start my \(span)", comment: "CTA, e.g. 'Start my 3 free days'")
     }
 
@@ -286,7 +378,7 @@ struct PaywallView: View {
 
     private var renewalNote: String {
         guard let plan = model?.selectedPlan, let period = periodNoun(plan.period) else { return "" }
-        if freeTrialSpan(plan) != nil {
+        if trialIsOnOffer, freeTrialSpan(plan) != nil {
             return String(localized: "Then \(plan.displayPrice) a \(period). Cancel in Settings any time.")
         }
         return String(localized: "\(plan.displayPrice) a \(period). Cancel in Settings any time.")
