@@ -166,7 +166,16 @@ final class AlarmScheduler {
     }
 
     /// Full reset: cancel every owner's alarms and everything AlarmKit reports.
+    /// Serialized like every other mutation here. It used to run straight through, which was
+    /// harmless while it was an unused helper and stopped being harmless the moment entitlement
+    /// started driving it: interleaved with a `reconcile`, cancel would clear an owner and the
+    /// reconcile would re-baseline it a moment later — leaving a lapsed reader with a live alarm,
+    /// or taking one away from a paying one.
     func cancelAll() async {
+        await serialize { [weak self] in await self?.performCancelAll() }
+    }
+
+    private func performCancelAll() async {
         for owner in AlarmChain.owners() {
             await cancel(owner: owner)
             clearSignature(owner)

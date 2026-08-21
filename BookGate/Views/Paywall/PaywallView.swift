@@ -32,16 +32,17 @@ struct PaywallView: View {
     @State private var message: String?
     @State private var showManage = false
 
-    /// Automatic retries already spent on the catalogue. A first-time reader cannot get past
-    /// this screen without prices, so the screen tries on their behalf before asking them to.
-    @State private var autoRetries = 0
-    /// True while a retry is in flight, so the reader sees "trying" rather than a verdict the
-    /// screen is still working on.
+    /// True while a retry pass owns the screen, so the reader sees "trying" rather than a
+    /// verdict the screen is still working on — and so two passes can never overlap.
     @State private var isRetrying = false
+    /// The automatic ladder runs once per appearance of this screen, however it is kicked.
+    @State private var hasAutoRetried = false
 
-    /// Two attempts, 1s apart. Each fetch can itself run the full 20-second timeout, so a
-    /// third pushed the wait past a minute — measured on a forced failure, not guessed.
-    private static let maxAutoRetries = 2
+    /// The automatic ladder: two attempts, one second then two. A first-time reader cannot get
+    /// past this screen without prices, so it tries on their behalf before asking them to. Each
+    /// fetch can itself run the full 20-second timeout, so a third pushed the total wait past a
+    /// minute — measured on a forced failure, not guessed.
+    private static let autoRetryDelays: [Duration] = [.seconds(1), .seconds(2)]
 
     /// Why this screen is being shown, when the store has established it. `nil` while
     /// entitlement is still resolving, and `.neverSubscribed` for the first-run case.
@@ -109,10 +110,16 @@ struct PaywallView: View {
             // already true, which left onboarding's last step with no way forward.
             if services.subscription.entitlement == .entitled { onSubscribed() }
             await model?.load()
-            await autoRetryWhileFailing()
+            await autoRetryIfFailing()
         }
         .onChange(of: services.subscription.entitlement) { _, now in
             if now == .entitled { onSubscribed() }
+        }
+        // The other half of the kick — see `autoRetryIfFailing()`. On the hard wall the
+        // catalogue fetch is usually still in flight when this screen mounts, so the ladder
+        // has to be able to start when the failure lands rather than only at mount.
+        .onChange(of: model?.state) { _, _ in
+            Task { await autoRetryIfFailing() }
         }
     }
 
@@ -329,26 +336,36 @@ struct PaywallView: View {
     // MARK: Retrying
 
     /// Retry on the reader's behalf, with a widening gap, before handing them the problem.
-    private func autoRetryWhileFailing() async {
-        while autoRetries < Self.maxAutoRetries {
-            guard case .failed = model?.state else { return }
-            autoRetries += 1
-            isRetrying = true
-            try? await Task.sleep(for: .seconds(1))
-            await model?.retry()
-            isRetrying = false
-        }
+    ///
+    /// Kicked from **both** `.task` and the state becoming `.failed`, because which of those
+    /// comes first is a matter of scheduling. On the hard wall the second one usually wins:
+    /// `activate()` resolves entitlement, the wall appears, and the price fetch is still in
+    /// flight — so a ladder that only looked at mount saw `.loading`, exited, and never ran
+    /// at all. `hasAutoRetried` is what keeps the two kicks to one ladder.
+    private func autoRetryIfFailing() async {
+        guard !hasAutoRetried, case .failed = model?.state else { return }
+        hasAutoRetried = true
+        await retry(after: Self.autoRetryDelays)
     }
 
-    /// The manual button. Resets the budget, so a reader who waits and taps gets the same
-    /// patient sequence again rather than one lonely attempt.
+    /// The manual button: one fetch, immediately. The reader is in control now, so the screen
+    /// does not put them back through the patient ladder — that exists to spare someone who
+    /// does not know to tap, and re-running it here is what turned a single tap into three
+    /// fetches and the best part of a minute of spinner.
     private func retryNow() {
-        autoRetries = 0
-        Task {
-            isRetrying = true
+        Task { await retry(after: [.zero]) }
+    }
+
+    /// One retry pass: a fetch per delay, stopping the moment the catalogue resolves. A second
+    /// pass while one is already running is ignored.
+    private func retry(after delays: [Duration]) async {
+        guard !isRetrying else { return }
+        isRetrying = true
+        defer { isRetrying = false }
+        for delay in delays {
+            guard case .failed = model?.state else { return }
+            if delay > .zero { try? await Task.sleep(for: delay) }
             await model?.retry()
-            isRetrying = false
-            await autoRetryWhileFailing()
         }
     }
 
@@ -503,6 +520,7 @@ struct PaywallView: View {
             switch await model.purchaseSelected() {
             case .success:   onSubscribed()
             case .cancelled: break                       // user backed out — say nothing
+            case .busy:      break                       // already trying — say nothing
             case .pending:   message = String(localized: "Waiting for approval…")
             case .failed(let error):
                 // Log the detail; show our own words. StoreKit's error text is not ours.
@@ -521,6 +539,7 @@ struct PaywallView: View {
             case .nothingFound: message = String(localized: "No purchase to restore.")
             case .uncertain:    message = String(localized: "Couldn't check just now. Try again in a moment.")
             case .cancelled:    break                    // backed out of sign-in — say nothing
+            case nil:           break                    // already trying — say nothing
             case .failed:       message = String(localized: "Couldn't restore. Please try again.")
             }
         }

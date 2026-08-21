@@ -63,9 +63,14 @@ final class SessionCoordinator {
     private let settings: ReadingSettings
     private let scheduler: AlarmScheduler
     private let shield: ShieldControlling
-    /// Whether the reader currently has an active subscription. A closure rather than a
+    /// Whether the subscription currently permits the paid features. A closure rather than a
     /// stored flag so it is read at the moment it matters, never cached from launch.
-    private let isEntitled: () -> Bool
+    ///
+    /// Deliberately **true while entitlement is still unresolved**: only a *confirmed* lapse
+    /// may take something away, which is the rule the wall and the alarm scheduling already
+    /// follow. Asking "is it a definite yes?" instead denied the shield to a paying reader
+    /// whose StoreKit answer had simply not landed yet.
+    private let subscriptionAllows: () -> Bool
 
     private var ticker: Task<Void, Never>?
     private let watchdogDelay: TimeInterval = 120
@@ -73,7 +78,7 @@ final class SessionCoordinator {
     init(scheduleForID: @escaping (UUID?) -> Schedule?,
          progress: ProgressStore, journal: JournalStore, books: BookStore,
          settings: ReadingSettings, scheduler: AlarmScheduler, shield: ShieldControlling,
-         isEntitled: @escaping () -> Bool = { true }) {
+         subscriptionAllows: @escaping () -> Bool = { true }) {
         self.scheduleForID = scheduleForID
         self.progress = progress
         self.journal = journal
@@ -81,7 +86,7 @@ final class SessionCoordinator {
         self.settings = settings
         self.scheduler = scheduler
         self.shield = shield
-        self.isEntitled = isEntitled
+        self.subscriptionAllows = subscriptionAllows
     }
 
     // MARK: Entry points
@@ -167,8 +172,8 @@ final class SessionCoordinator {
         overtimeSecs = 0
         // App shielding is a paid feature. `ShieldControlling` has always documented
         // "a lapsed subscription ⇒ shield OFF" and nothing enforced it — this is where the
-        // caller stops raising the window.
-        if isEntitled() { shield.beginReadingWindow() }
+        // caller stops raising the window. A *confirmed* lapse only: see `subscriptionAllows`.
+        if subscriptionAllows() { shield.beginReadingWindow() }
         phase = .session
         startTicker()
     }

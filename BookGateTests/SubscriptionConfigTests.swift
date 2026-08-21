@@ -43,6 +43,30 @@ final class SubscriptionConfigTests: XCTestCase {
         }
     }
 
+    /// The preview's savings badge is **stated**, while the shipping one is **computed** from
+    /// real prices — so the two can drift apart without anything failing. At $5.99 monthly the
+    /// real badge is 58% while the stated one still read 50%, and nothing noticed. This pins
+    /// the stated number to the prices it claims to describe.
+    func testStatedPreviewSavingsMatchesWhatThosePricesActuallyWorkOutTo() throws {
+        let plans = AppSubscription.previewPlansForTesting
+        let yearly = try XCTUnwrap(plans.first { $0.id == AppSubscription.yearlyID })
+        let monthly = try XCTUnwrap(plans.first { $0.id == AppSubscription.monthlyID })
+
+        let stated = try XCTUnwrap(yearly.savingsPercentVsMonthly,
+                                   "the yearly preview card states a saving")
+        let computed = try XCTUnwrap(
+            Savings.percent(yearlyPrice: try Self.price(yearly.displayPrice),
+                            monthlyPrice: try Self.price(monthly.displayPrice)),
+            "\(yearly.displayPrice) against \(monthly.displayPrice) works out to no saving at all"
+        )
+        XCTAssertEqual(
+            stated, computed,
+            "the preview card says SAVE \(stated)% while \(yearly.displayPrice) against "
+            + "\(monthly.displayPrice) is \(computed)% — the shipping badge computes it, so the "
+            + "screen being reviewed is not the screen that ships."
+        )
+    }
+
     /// Both plans must carry the free trial the paywall advertises, for the same length.
     /// Promising a trial a product does not offer is a misleading subscription presentation.
     func testEveryPlanCarriesTheTrialThePaywallAdvertises() throws {
@@ -77,9 +101,14 @@ final class SubscriptionConfigTests: XCTestCase {
 
     // MARK: Fixture
 
-    /// Every product id declared in the app's own `.storekit`, whatever kind it is.
-/// Price and introductory offer per product, straight out of the fixture.
+    /// Price and introductory offer per product, straight out of the fixture.
     struct FixtureRow { let price: String; let offerMode: String?; let offerPeriod: String? }
+
+    /// "$29.99" → `29.99`, so a display string can be compared against real arithmetic.
+    static func price(_ display: String) throws -> Decimal {
+        let digits = display.filter { $0.isNumber || $0 == "." }
+        return try XCTUnwrap(Decimal(string: digits), "no price to read in \(display)")
+    }
 
     static func subscriptionsInStoreKitFile() throws -> [String: FixtureRow] {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "BookGate", withExtension: "storekit"),
@@ -99,6 +128,7 @@ final class SubscriptionConfigTests: XCTestCase {
         return rows
     }
 
+    /// Every product id declared in the app's own `.storekit`, whatever kind it is.
     static func productIDsInStoreKitFile() throws -> Set<String> {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "BookGate", withExtension: "storekit"),
                                 "BookGate.storekit is missing from the test bundle's resources")

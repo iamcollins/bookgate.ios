@@ -57,7 +57,10 @@ final class AppServices {
             scheduleForID: { [weak alarmStore] in alarmStore?.schedule(for: $0) },
             progress: progress, journal: journal, books: bookStore,
             settings: settings, scheduler: scheduler, shield: shield,
-            isEntitled: { [weak subStore] in subStore?.isEntitled ?? false })
+            // Only a *confirmed* lapse withholds the shield — `.unknown` must not, for the
+            // same reason it must not cancel a paying reader's alarms. A store that has gone
+            // away answers "allow", which is the safe direction.
+            subscriptionAllows: { [weak subStore] in subStore?.entitlement != .notEntitled })
         let sess = session
 
         // Persist alarm edits — set AFTER load so hydration doesn't echo a save.
@@ -96,10 +99,22 @@ final class AppServices {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
-        // Entitlement first: reconciling before it resolves would arm a lapsed reader's
-        // alarms for the evening and only disarm them once StoreKit answered.
-        await subscription.activate()
-        await applyEntitlementToScheduling(subscription.entitlement)
+
+        // The catalogue fetch inside `activate()` is network-bound with a twenty-second
+        // timeout, and **nothing on the alarm path may queue behind it**. Awaiting the whole
+        // of `activate()` here meant a cold launch on bad wifi left `observeUpdates()`
+        // unstarted — so the alarm that caused the launch had nothing listening for it, and
+        // the ringing screen stayed blank until the price fetch gave up.
+        //
+        // Unstructured on purpose: this is an app-lifetime bootstrap and the line below must
+        // not wait on it. It is idempotent, so `SubscriptionWall`'s own `.task` is harmless.
+        Task { await subscription.activate() }
+
+        // Entitlement itself is local, offline-safe and fast — it is the half that scheduling
+        // keys on, and the only half worth ordering before it. It coalesces with the refresh
+        // `activate()` is making at the same moment, so this is one reading, not two.
+        let state = await subscription.refreshEntitlement()
+        await applyEntitlementToScheduling(state)
         session.consumePendingGate()       // route straight into the reading gate if tapped
         await scheduler.observeUpdates()   // never returns
     }
