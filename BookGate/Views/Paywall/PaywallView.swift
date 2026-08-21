@@ -126,7 +126,11 @@ struct PaywallView: View {
             // the space a tall phone has spare goes above it and below it, never through it.
             Spacer(minLength: tight ? 16 : 22)
             benefits
-            Spacer().frame(height: tight ? 14 : 20)
+            // The highlights are prose and the plans are a control — they need a clear
+            // break between them, not the rhythm of one list running into the next.
+            // Wider than it looks it needs: the savings badge sits *above* the first card's
+            // edge, so it eats into whatever gap is set here.
+            Spacer().frame(height: tight ? 30 : 46)
             plans
             Spacer(minLength: tight ? 16 : 22)
             cta
@@ -225,7 +229,9 @@ struct PaywallView: View {
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(plan.displayName).font(BGFont.ui(16, .semibold)).foregroundStyle(palette.ink(.hero))
-                    Text(billingLine(plan)).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
+                    Text(billingLine(plan))
+                        .font(BGFont.ui(13, .semibold))
+                        .foregroundStyle(billingLineColor(plan))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -381,22 +387,31 @@ struct PaywallView: View {
     // `Product.SubscriptionOffer`. Nothing here may move into the package: a localized string
     // resolved against a package bundle silently returns its key.
 
-    /// "€29.99 a year · €2.50 a month" for a yearly plan; "Billed every month" otherwise.
+    /// The line under the plan name. On a yearly plan it is the per-month equivalent — the
+    /// one fact that makes the two cards comparable — and it is set in brass, because that
+    /// comparison is the reason to choose it. On a monthly plan there is nothing to convert,
+    /// so it just states the billing.
     private func billingLine(_ plan: PaywallModel.PlanDisplay) -> String {
-        if let perMonth = plan.pricePerMonth, let period = periodNoun(plan.period) {
-            return String(localized: "\(plan.displayPrice) a \(period) · \(perMonth) a month")
+        if let perMonth = plan.pricePerMonth {
+            return String(localized: "\(perMonth) a month")
         }
         guard let period = periodNoun(plan.period) else { return plan.displayPrice }
         return String(localized: "Billed every \(period)")
     }
 
-    /// The big figure: a yearly plan is quoted per month so the two cards compare honestly.
+    /// Brass only for the per-month comparison, so the accent means one thing.
+    private func billingLineColor(_ plan: PaywallModel.PlanDisplay) -> Color {
+        plan.pricePerMonth != nil ? palette.brassValue : palette.ink(.secondary)
+    }
+
+    /// The big figure is **the price of the plan you are buying** — the yearly card shows
+    /// the yearly price. It used to show the per-month equivalent, so the largest number on
+    /// a yearly card was a figure that is never actually charged.
     private func unitPrice(_ plan: PaywallModel.PlanDisplay) -> String {
-        plan.pricePerMonth ?? plan.displayPrice
+        plan.displayPrice
     }
 
     private func unitCaption(_ plan: PaywallModel.PlanDisplay) -> String? {
-        if plan.pricePerMonth != nil { return String(localized: "per month") }
         guard let period = periodNoun(plan.period) else { return nil }
         return String(localized: "per \(period)")
     }
