@@ -82,8 +82,14 @@ final class AppServices {
         // `Shield/` or `Model/` consulted entitlement at all, so a lapsed reader still got
         // the alarm, the gate, the shield and the whole session every night — and only met
         // the paywall if they happened to open the app in daylight.
-        subscription.onEntitlementChange = { [weak self] _, now in
-            Task { @MainActor in await self?.applyEntitlementToScheduling(now) }
+        //
+        // The state is deliberately *not* captured and passed in. Two transitions close
+        // together produce two unstructured Tasks, and their order on the actor is not
+        // guaranteed — so a Task carrying a stale "entitled" could land after one carrying
+        // "lapsed" and re-arm alarms that had just been cancelled. Reading the store when the
+        // work actually runs makes late and out-of-order Tasks converge on the truth instead.
+        subscription.onEntitlementChange = { [weak self] _, _ in
+            Task { @MainActor in await self?.applyEntitlementToScheduling() }
         }
 
         #if DEBUG
@@ -113,8 +119,8 @@ final class AppServices {
         // Entitlement itself is local, offline-safe and fast — it is the half that scheduling
         // keys on, and the only half worth ordering before it. It coalesces with the refresh
         // `activate()` is making at the same moment, so this is one reading, not two.
-        let state = await subscription.refreshEntitlement()
-        await applyEntitlementToScheduling(state)
+        await subscription.refreshEntitlement()
+        await applyEntitlementToScheduling()
         session.consumePendingGate()       // route straight into the reading gate if tapped
         await scheduler.observeUpdates()   // never returns
     }
@@ -150,8 +156,11 @@ final class AppServices {
     /// rule the paywall itself follows. Nothing here touches a session already running — a
     /// lapse mid-session lets tonight finish, and an alarm that is ringing can always be
     /// silenced.
-    private func applyEntitlementToScheduling(_ state: SubscriptionStore.EntitlementState) async {
-        switch state {
+    ///
+    /// Reads the store rather than taking the state as a parameter, so that whichever call
+    /// runs last settles on what is true then — see `onEntitlementChange` above.
+    private func applyEntitlementToScheduling() async {
+        switch subscription.entitlement {
         case .notEntitled:
             await scheduler.cancelAll()
         case .entitled:
