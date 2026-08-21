@@ -22,11 +22,14 @@ struct SettingsView: View {
                     howItAdaptsCard
                     duringSessionCard
                     appearanceCard(settings: settings)
+                    SubscriptionCard()
+                    aboutCard
                     footer
                 }
                 .padding(.horizontal, 20).padding(.vertical, 20)
             }
             .scrollContentBackground(.hidden)
+            .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
         }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -126,6 +129,31 @@ struct SettingsView: View {
                 ForEach(ThemePreference.allCases) { Text($0.label).tag($0) }
             }.pickerStyle(.segmented)
         }
+    }
+
+    // MARK: About
+
+    /// Where the app says what it is and what it does with your things. The privacy line is not
+    /// marketing — it is the one claim this app makes that a reader is entitled to see restated
+    /// somewhere calmer than onboarding.
+    private var aboutCard: some View {
+        card("About") {
+            HStack {
+                Text("Version").font(BGFont.row).foregroundStyle(palette.ink(.strong))
+                Spacer()
+                Text(versionLabel).font(BGFont.mono(13)).foregroundStyle(palette.ink(.secondary))
+            }
+            Divider().overlay(palette.hairline)
+            ruleRow("Everything stays on this phone",
+                    "Your photos, your recordings and your reading history are never uploaded.")
+        }
+    }
+
+    private var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(short) (\(build))"
     }
 
     private var footer: some View {
