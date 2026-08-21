@@ -50,10 +50,14 @@ enum LapseCopy {
             return String(localized: "Here's what's available now.")
 
         case .cancelled, .expired:
+            // Deliberately does NOT promise that their library and streak are intact. That
+            // read well until you remember this same screen appears after a delete and
+            // reinstall, where every one of those things is gone — the app would be
+            // reassuring someone about data it had just lost.
             if let ended = lapse.endedAt {
-                return String(localized: "Your \(plan) ended on \(dayMonth(ended)). Your books, takeaways and streak are all still here.")
+                return String(localized: "Your \(plan) ended on \(dayMonth(ended)).")
             }
-            return String(localized: "Your books, takeaways and streak are all still here.")
+            return String(localized: "Pick up where you left off whenever you like.")
         }
     }
 

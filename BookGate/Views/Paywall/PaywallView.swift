@@ -125,14 +125,8 @@ struct PaywallView: View {
             // Only two gaps flex. The offer — timeline then prices — has to read as one block, so
             // the space a tall phone has spare goes above it and below it, never through it.
             Spacer(minLength: tight ? 16 : 22)
-            // A trial timeline only when there is a trial; otherwise the reason they're here.
-            if trialIsOnOffer {
-                timeline
-                Spacer().frame(height: tight ? 12 : 16)
-            } else if hasLapsed {
-                keptSafeNotice
-                Spacer().frame(height: tight ? 12 : 16)
-            }
+            benefits
+            Spacer().frame(height: tight ? 14 : 20)
             plans
             Spacer(minLength: tight ? 16 : 22)
             cta
@@ -160,49 +154,47 @@ struct PaywallView: View {
         return LapseCopy.detail(lapse, planName: lapsedPlanName)
     }
 
-    /// Shown instead of the trial timeline to a reader who has lapsed. Nothing of theirs is
-    /// gone, and saying so is worth more here than a sales point — the fear on this screen
-    /// is "have I lost my streak", not "is this good value".
-    private var keptSafeNotice: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "lock.open")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(palette.brassValue).frame(width: 22)
+    // MARK: What you get (constant across every variant)
+
+    /// The middle of this screen never changes. Whether someone is new, lapsed, refunded
+    /// or has a failed card, the product on offer is identical — so the only things that
+    /// move are the headline, the line under it, the CTA and the note beneath it.
+    ///
+    /// This replaced a day-by-day trial timeline (today / day 2 / day 3). That described
+    /// the *billing schedule*, which is only meaningful to someone being offered a trial,
+    /// and said nothing about what BookGate actually does. It also had to be hidden for
+    /// every returning reader, which is what made the middle variant-specific in the first
+    /// place.
+    private var benefits: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            benefit("alarm.fill",
+                    "A reading alarm you can't wave away",
+                    "It keeps going until you show your book to the camera.")
+            benefit("hourglass",
+                    "The apps that usually win, held back",
+                    "Your picks stay locked until the session is done.")
+            benefit("waveform",
+                    "One thing you'll remember, in your own voice",
+                    "Record a takeaway after a session. It's kept with the book.")
+            benefit("chart.bar.fill",
+                    "Your streak, night after night",
+                    "Every night you read is marked — with one rest day a week.")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func benefit(_ symbol: String, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(palette.brassValue)
+                .frame(width: 26)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nothing has been deleted")
-                    .font(BGFont.ui(13.5, .semibold)).foregroundStyle(palette.ink(.strong))
-                Text("Your library, your takeaways and your streak are on this phone, exactly as you left them.")
+                Text(title)
+                    .font(BGFont.ui(14.5, .semibold)).foregroundStyle(palette.ink(.strong))
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(detail)
                     .font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(.card, cornerRadius: 22)
-    }
-
-    // MARK: Trial timeline (before the price)
-
-    private var timeline: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            timelineRow("lock.open", "Today — everything opens", "Full app. First session tonight at 9:00 PM.")
-            timelineRow("bell", "Day 2 — we email you", "A day before anything is charged, in writing.")
-            timelineRow("creditcard", "Day 3 — your plan begins", "Cancel any time before then and pay nothing.")
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(.card, cornerRadius: 22)
-    }
-
-    private func timelineRow(_ symbol: String, _ day: String, _ text: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: symbol).font(.system(size: 16, weight: .medium))
-                .foregroundStyle(palette.brassValue).frame(width: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(day).font(BGFont.ui(13.5, .semibold)).foregroundStyle(palette.ink(.strong))
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(text).font(BGFont.caption).foregroundStyle(palette.ink(.secondary))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -376,12 +368,14 @@ struct PaywallView: View {
         .padding(.top, 6)
     }
 
+    /// The disclosure under the CTA. Auto-renewal has to be stated plainly next to the
+    /// button that starts it — "cancel any time" alone does not say the thing that renews.
     private var renewalNote: String {
         guard let plan = model?.selectedPlan, let period = periodNoun(plan.period) else { return "" }
-        if trialIsOnOffer, freeTrialSpan(plan) != nil {
-            return String(localized: "Then \(plan.displayPrice) a \(period). Cancel in Settings any time.")
+        if trialIsOnOffer, let span = trialLength(plan) {
+            return String(localized: "Free for \(span), then \(plan.displayPrice) a \(period). Auto-renews until cancelled. Cancel any time in Settings.")
         }
-        return String(localized: "\(plan.displayPrice) a \(period). Cancel in Settings any time.")
+        return String(localized: "\(plan.displayPrice) a \(period). Auto-renews until cancelled. Cancel any time in Settings.")
     }
 
     // MARK: Copy built from the model's facts
@@ -408,6 +402,21 @@ struct PaywallView: View {
         if plan.pricePerMonth != nil { return String(localized: "per month") }
         guard let period = periodNoun(plan.period) else { return nil }
         return String(localized: "per \(period)")
+    }
+
+    /// The bare length — "3 days" — for prose that supplies its own word for free. The CTA
+    /// wants "3 free days"; a sentence starting "Free for…" does not, or it reads "3 free
+    /// days free".
+    private func trialLength(_ plan: PaywallModel.PlanDisplay) -> String? {
+        guard let offer = plan.introOffer, offer.paymentMode == .freeTrial else { return nil }
+        let n = offer.period.value
+        switch offer.period.unit {
+        case .day:   return String(localized: "\(n) days")
+        case .week:  return String(localized: "\(n) weeks")
+        case .month: return String(localized: "\(n) months")
+        case .year:  return String(localized: "\(n) years")
+        @unknown default: return nil
+        }
     }
 
     /// "3 days free"-style span for the CTA, or nil when the user is not eligible for a *free*

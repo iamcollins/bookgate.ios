@@ -55,12 +55,26 @@ final class LapseCopyTests: XCTestCase {
         }
     }
 
-    /// The lapse copy reassures before it sells — the fear on that screen is losing a streak.
-    func testALapseSaysNothingWasLost() {
+    /// A lapse names the plan and the day, and nothing else.
+    func testALapseNamesThePlanAndTheDate() {
         let lapse = EntitlementLapse(reason: .cancelled, endedAt: now.addingTimeInterval(-86_400))
         let text = LapseCopy.detail(lapse, planName: "monthly plan")
-        XCTAssertTrue(text.contains("still here"), "got: \(text)")
         XCTAssertTrue(text.contains("monthly plan"), "the plan that ended should be named")
+        XCTAssertTrue(text.contains(LapseCopy.dayMonth(now.addingTimeInterval(-86_400))))
+    }
+
+    /// This screen also appears after a delete-and-reinstall, where the library, takeaways
+    /// and streak are all genuinely gone. It must never claim otherwise.
+    func testALapseNeverPromisesTheDataSurvived() {
+        for reason: EntitlementLapse.Reason in [.cancelled, .expired, .billingFailed,
+                                                .refunded, .productUnavailable,
+                                                .priceIncreaseDeclined] {
+            let text = LapseCopy.detail(.init(reason: reason, endedAt: now), planName: nil)
+                .lowercased()
+            XCTAssertFalse(text.contains("still here"), "\(reason): \(text)")
+            XCTAssertFalse(text.contains("takeaways"), "\(reason): \(text)")
+            XCTAssertFalse(text.contains("streak"), "\(reason): \(text)")
+        }
     }
 
     func testABillingFailureTellsThemHowToFixIt() {
