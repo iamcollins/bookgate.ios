@@ -60,6 +60,10 @@ enum AppSubscription {
     /// Mirrors the real US storefront prices in App Store Connect ($29.99 / $4.99), so the layout
     /// is reviewed at the widths it will actually have. 50% is what those two prices work out to
     /// ($4.99 x 12 = $59.88 against $29.99); the shipping badge computes it rather than stating it.
+    /// Exposed to the test bundle so the guardrail can compare these against
+    /// `BookGate.storekit`. They drifted once already.
+    static var previewPlansForTesting: [PreviewPlan] { previewPlans }
+
     private static let previewPlans: [PreviewPlan] = [
         .init(id: yearlyID, displayName: "Yearly", displayPrice: "$29.99",
               pricePerMonth: "$2.50", period: .init(unit: .year, value: 1),

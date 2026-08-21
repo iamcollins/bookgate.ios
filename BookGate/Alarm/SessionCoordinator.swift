@@ -63,13 +63,17 @@ final class SessionCoordinator {
     private let settings: ReadingSettings
     private let scheduler: AlarmScheduler
     private let shield: ShieldControlling
+    /// Whether the reader currently has an active subscription. A closure rather than a
+    /// stored flag so it is read at the moment it matters, never cached from launch.
+    private let isEntitled: () -> Bool
 
     private var ticker: Task<Void, Never>?
     private let watchdogDelay: TimeInterval = 120
 
     init(scheduleForID: @escaping (UUID?) -> Schedule?,
          progress: ProgressStore, journal: JournalStore, books: BookStore,
-         settings: ReadingSettings, scheduler: AlarmScheduler, shield: ShieldControlling) {
+         settings: ReadingSettings, scheduler: AlarmScheduler, shield: ShieldControlling,
+         isEntitled: @escaping () -> Bool = { true }) {
         self.scheduleForID = scheduleForID
         self.progress = progress
         self.journal = journal
@@ -77,6 +81,7 @@ final class SessionCoordinator {
         self.settings = settings
         self.scheduler = scheduler
         self.shield = shield
+        self.isEntitled = isEntitled
     }
 
     // MARK: Entry points
@@ -160,7 +165,10 @@ final class SessionCoordinator {
         goalReached = false
         inOvertime = false
         overtimeSecs = 0
-        shield.beginReadingWindow()
+        // App shielding is a paid feature. `ShieldControlling` has always documented
+        // "a lapsed subscription ⇒ shield OFF" and nothing enforced it — this is where the
+        // caller stops raising the window.
+        if isEntitled() { shield.beginReadingWindow() }
         phase = .session
         startTicker()
     }

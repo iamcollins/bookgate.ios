@@ -105,6 +105,12 @@ struct OnboardingView: View {
             }
         }
         .nightFlow()   // onboarding shows the dark brand surface regardless of system theme
+        .alert("Restore", isPresented: Binding(get: { restoreMessage != nil },
+                                               set: { if !$0 { restoreMessage = nil } })) {
+            Button("OK", role: .cancel) { restoreMessage = nil }
+        } message: {
+            Text(restoreMessage ?? "")
+        }
     }
 
     private func next() {
@@ -122,8 +128,22 @@ struct OnboardingView: View {
             step = p
         }
     }
+    /// A tap that visibly does nothing reads as a broken button. Only `.restored` used to be
+    /// handled, so someone with nothing to restore — the common case for a first-time reader
+    /// who tapped it out of curiosity — got silence.
+    @State private var restoreMessage: String?
+
     private func restore() {
-        Task { if await services.subscription.restore() == .restored { finish() } }
+        restoreMessage = nil
+        Task {
+            switch await services.subscription.restore() {
+            case .restored:     finish()
+            case .nothingFound: restoreMessage = String(localized: "No purchase to restore on this Apple Account.")
+            case .uncertain:    restoreMessage = String(localized: "Couldn't check just now. Try again in a moment.")
+            case .failed:       restoreMessage = String(localized: "Couldn't restore. Please try again.")
+            case .cancelled:    break              // backed out of sign-in — say nothing
+            }
+        }
     }
     private func finish() {
         // Ensure a reading alarm exists (default 9pm nightly) so Today + scheduling work.

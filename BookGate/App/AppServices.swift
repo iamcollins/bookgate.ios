@@ -48,6 +48,7 @@ final class AppServices {
         settings = ReadingSettings.load()
         scheduler = AlarmScheduler()
         subscription = SubscriptionStore(config: AppSubscription.config)
+        let subStore = subscription
         shield = ShieldManager()   // no-ops (shield OFF) until the family-controls entitlement lands
 
         let bookStore = books
@@ -55,7 +56,8 @@ final class AppServices {
         session = SessionCoordinator(
             scheduleForID: { [weak alarmStore] in alarmStore?.schedule(for: $0) },
             progress: progress, journal: journal, books: bookStore,
-            settings: settings, scheduler: scheduler, shield: shield)
+            settings: settings, scheduler: scheduler, shield: shield,
+            isEntitled: { [weak subStore] in subStore?.isEntitled ?? false })
         let sess = session
 
         // Persist alarm edits — set AFTER load so hydration doesn't echo a save.
@@ -73,6 +75,14 @@ final class AppServices {
         onAlarmAlerting = { [weak sess] ids in sess?.handleAlarmUpdate(alertingIDs: ids) }
         scheduler.onUpdate = { [weak self] ids in self?.onAlarmAlerting(ids) }
 
+        // The night flow is what the subscription buys. Until now nothing under `Alarm/`,
+        // `Shield/` or `Model/` consulted entitlement at all, so a lapsed reader still got
+        // the alarm, the gate, the shield and the whole session every night — and only met
+        // the paywall if they happened to open the app in daylight.
+        subscription.onEntitlementChange = { [weak self] _, now in
+            Task { @MainActor in await self?.applyEntitlementToScheduling(now) }
+        }
+
         #if DEBUG
         seedForScreenshotsIfRequested()
         #endif
@@ -86,9 +96,10 @@ final class AppServices {
         refreshCameraStatus()
         scheduler.refreshAuthorization()
         shield.refreshAuthorization()
-        async let boot: Void = subscription.activate()
-        await scheduler.reconcile(store.alarms)
-        await boot
+        // Entitlement first: reconciling before it resolves would arm a lapsed reader's
+        // alarms for the evening and only disarm them once StoreKit answered.
+        await subscription.activate()
+        await applyEntitlementToScheduling(subscription.entitlement)
         session.consumePendingGate()       // route straight into the reading gate if tapped
         await scheduler.observeUpdates()   // never returns
     }
@@ -107,9 +118,29 @@ final class AppServices {
         session.consumePendingGate()
     }
 
-    /// Re-schedule after an edit to the alarm time / active nights.
+    /// Re-schedule after an edit to the alarm time / active nights. A lapsed reader's edits
+    /// are still saved — they simply do not arm anything until the subscription is back.
     func resync() async {
+        guard subscription.entitlement != .notEntitled else { return }
         await scheduler.reconcile(store.alarms)
+    }
+
+    /// Arm or disarm the nightly alarms to match entitlement.
+    ///
+    /// Deliberately keyed on a **confirmed** `.notEntitled`: `.unknown` must never cancel a
+    /// paying reader's alarms just because StoreKit has not answered yet, which is the same
+    /// rule the paywall itself follows. Nothing here touches a session already running — a
+    /// lapse mid-session lets tonight finish, and an alarm that is ringing can always be
+    /// silenced.
+    private func applyEntitlementToScheduling(_ state: SubscriptionStore.EntitlementState) async {
+        switch state {
+        case .notEntitled:
+            await scheduler.cancelAll()
+        case .entitled:
+            await scheduler.reconcile(store.alarms)
+        case .unknown:
+            break
+        }
     }
 
     func refreshCameraStatus() { cameraStatus = CameraAccess.status }

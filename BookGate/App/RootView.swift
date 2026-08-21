@@ -45,6 +45,11 @@ struct RootView: View {
             }
         }
         .environment(services)
+        // App Store messages — price-increase consent, billing issues. Held back for the
+        // whole night flow: StoreKit's own moment is app foreground, and this app's
+        // foreground can be an alarm going off. A payment sheet over a ringing alarm is the
+        // one place these must never appear.
+        .storeKitMessages(suppressedWhile: services.session.phase != .idle)
         .animation(.easeInOut(duration: 0.4), value: services.session.phase)
         .animation(.easeInOut(duration: 0.3), value: services.subscription.entitlement)
     }

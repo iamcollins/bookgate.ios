@@ -23,6 +23,37 @@ final class SubscriptionConfigTests: XCTestCase {
         )
     }
 
+
+    /// The DEBUG preview prices exist so the paywall can be *reviewed* at the widths it will
+    /// really have. When they drift from the `.storekit` fixture, every layout judgement and
+    /// every screenshot is made against a price nobody is charged — and the savings badge is
+    /// computed from them, so a wrong monthly price silently changes it (50% at $4.99,
+    /// 58% at $5.99).
+    ///
+    /// This caught exactly that drift: the fixture said $5.99 while the preview said $4.99.
+    func testPreviewPricesMatchTheStoreKitFile() throws {
+        let fixture = try Self.subscriptionsInStoreKitFile()
+        for plan in AppSubscription.previewPlansForTesting {
+            let row = try XCTUnwrap(fixture[plan.id], "no \(plan.id) in BookGate.storekit")
+            XCTAssertEqual(
+                plan.displayPrice, "$" + row.price,
+                "\(plan.id): preview says \(plan.displayPrice), BookGate.storekit says $\(row.price). "
+                + "Whichever is wrong, the paywall is being reviewed against a price it never charges."
+            )
+        }
+    }
+
+    /// Both plans must carry the free trial the paywall advertises, for the same length.
+    /// Promising a trial a product does not offer is a misleading subscription presentation.
+    func testEveryPlanCarriesTheTrialThePaywallAdvertises() throws {
+        let fixture = try Self.subscriptionsInStoreKitFile()
+        for id in AppSubscription.config.entitlementProductIDs.sorted() {
+            let row = try XCTUnwrap(fixture[id], "no \(id) in BookGate.storekit")
+            XCTAssertEqual(row.offerMode, "free", "\(id): the paywall advertises a *free* trial")
+            XCTAssertEqual(row.offerPeriod, "P3D", "\(id): the paywall says three days")
+        }
+    }
+
     /// Both plans must be entitling, or a user could buy something that never unlocks the app.
     func testEveryPlanIsAlsoEntitling() {
         let planIDs = Set(AppSubscription.config.plans.map(\.id))
@@ -47,6 +78,27 @@ final class SubscriptionConfigTests: XCTestCase {
     // MARK: Fixture
 
     /// Every product id declared in the app's own `.storekit`, whatever kind it is.
+/// Price and introductory offer per product, straight out of the fixture.
+    struct FixtureRow { let price: String; let offerMode: String?; let offerPeriod: String? }
+
+    static func subscriptionsInStoreKitFile() throws -> [String: FixtureRow] {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "BookGate", withExtension: "storekit"),
+                                "BookGate.storekit is missing from the test bundle's resources")
+        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        var rows: [String: FixtureRow] = [:]
+        for group in json?["subscriptionGroups"] as? [[String: Any]] ?? [] {
+            for subscription in group["subscriptions"] as? [[String: Any]] ?? [] {
+                guard let id = subscription["productID"] as? String,
+                      let price = subscription["displayPrice"] as? String else { continue }
+                let offer = subscription["introductoryOffer"] as? [String: Any]
+                rows[id] = FixtureRow(price: price,
+                                      offerMode: offer?["paymentMode"] as? String,
+                                      offerPeriod: offer?["subscriptionPeriod"] as? String)
+            }
+        }
+        return rows
+    }
+
     static func productIDsInStoreKitFile() throws -> Set<String> {
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "BookGate", withExtension: "storekit"),
                                 "BookGate.storekit is missing from the test bundle's resources")

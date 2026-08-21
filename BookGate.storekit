@@ -1,95 +1,79 @@
 {
-  "identifier" : "A1B2C3D4-0000-0000-0000-BOOKGATESTORE",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
-
-  ],
-  "settings" : {
-    "_askToBuyEnabled" : false,
-    "_billingIssuesEnabled" : false,
-    "_disableDialogsInUITesting" : false,
-    "_failTransactionsEnabled" : false,
-    "_locale" : "en_US",
-    "_storefront" : "USA",
-    "_storeKitErrors" : [
-
-    ]
+  "identifier": "A1B2C3D4-0000-0000-0000-BOOKGATESTORE",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_billingIssuesEnabled": false,
+    "_disableDialogsInUITesting": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storeKitErrors": [],
+    "_storefront": "USA"
   },
-  "subscriptionGroups" : [
+  "subscriptionGroups": [
     {
-      "id" : "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
-      "localizations" : [
-
-      ],
-      "name" : "BookGate",
-      "subscriptions" : [
+      "id": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
+      "localizations": [],
+      "name": "BookGate",
+      "subscriptions": [
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "5.99",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "C1000001-0000-0000-0000-BOOKGATEMON01",
-          "introductoryOffer" : {
-            "displayPrice" : "0",
-            "internalID" : "D1000001-0000-0000-0000-BOOKGATETRLM",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "4.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "C1000001-0000-0000-0000-BOOKGATEMON01",
+          "introductoryOffer": {
+            "displayPrice": "0",
+            "internalID": "D1000001-0000-0000-0000-BOOKGATETRLM",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P3D"
           },
-          "localizations" : [
+          "localizations": [
             {
-              "description" : "Your nightly reading alarm, app shielding, journal and takeaways.",
-              "displayName" : "Monthly",
-              "locale" : "en_US"
+              "description": "Your nightly reading alarm, app shielding, journal and takeaways.",
+              "displayName": "Monthly",
+              "locale": "en_US"
             }
           ],
-          "productID" : "com.bookgate.premium.monthly",
-          "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "BookGate Monthly",
-          "subscriptionGroupID" : "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
-          "type" : "RecurringSubscription"
+          "productID": "com.bookgate.premium.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "BookGate Monthly",
+          "subscriptionGroupID": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
+          "type": "RecurringSubscription"
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "29.99",
-          "familyShareable" : false,
-          "groupNumber" : 1,
-          "internalID" : "C1000002-0000-0000-0000-BOOKGATEYR001",
-          "introductoryOffer" : {
-            "displayPrice" : "0",
-            "internalID" : "D1000002-0000-0000-0000-BOOKGATETRLY",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P3D"
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "C1000002-0000-0000-0000-BOOKGATEYR001",
+          "introductoryOffer": {
+            "displayPrice": "0",
+            "internalID": "D1000002-0000-0000-0000-BOOKGATETRLY",
+            "paymentMode": "free",
+            "subscriptionPeriod": "P3D"
           },
-          "localizations" : [
+          "localizations": [
             {
-              "description" : "Your nightly reading alarm, app shielding, journal and takeaways. Best value.",
-              "displayName" : "Yearly",
-              "locale" : "en_US"
+              "description": "Your nightly reading alarm, app shielding, journal and takeaways. Best value.",
+              "displayName": "Yearly",
+              "locale": "en_US"
             }
           ],
-          "productID" : "com.bookgate.premium.yearly",
-          "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "BookGate Yearly",
-          "subscriptionGroupID" : "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
-          "type" : "RecurringSubscription"
+          "productID": "com.bookgate.premium.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "BookGate Yearly",
+          "subscriptionGroupID": "B1B2C3D4-0000-0000-0000-BOOKGATEGRP01",
+          "type": "RecurringSubscription"
         }
       ]
     }
   ],
-  "version" : {
-    "major" : 4,
-    "minor" : 0
+  "version": {
+    "major": 4,
+    "minor": 0
   }
 }

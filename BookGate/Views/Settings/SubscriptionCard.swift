@@ -85,7 +85,11 @@ struct SubscriptionCard: View {
             }
             return String(localized: "Subscription ended")
         }
-        guard let id = detail?.productID else { return String(localized: "BookGate") }
+        // `entitlements` is empty when access was granted from Apple's renewal status rather
+        // than a transaction we read — the plan name still comes from the product id.
+        guard let id = detail?.productID ?? store.entitledProductIDs.first else {
+            return String(localized: "BookGate")
+        }
         switch id {
         case AppSubscription.yearlyID:  return String(localized: "BookGate · Yearly")
         case AppSubscription.monthlyID: return String(localized: "BookGate · Monthly")
