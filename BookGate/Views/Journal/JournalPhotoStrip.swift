@@ -26,7 +26,9 @@ struct JournalPhotoStrip: View {
                 get: { viewerIndex.map { IndexBox(id: $0) } },
                 set: { viewerIndex = $0?.id }
             )) { box in
-                JournalPhotoViewer(entries: entries, startIndex: box.id).environment(services)
+                JournalPhotoViewer(entries: entries, startIndex: box.id)
+                    .environment(services)
+                    .themedRoot(services.settings.theme)
             }
         }
     }

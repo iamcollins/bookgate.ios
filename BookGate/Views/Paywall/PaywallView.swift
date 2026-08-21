@@ -278,11 +278,16 @@ struct PaywallView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity)
-            .background {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(palette.glassCard)
-                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(isOn ? palette.brassLabel : palette.glassBorder, lineWidth: isOn ? 1.5 : 1))
+            // The chosen plan is brass-tinted glass rather than a brass hairline around a
+            // painted pane: on Liquid Glass, tint is how a surface says it is the selected one.
+            .glassEffect(isOn ? .regular.tint(palette.brassLabel.opacity(0.16)).interactive()
+                              : palette.glass(.card, interactive: true),
+                         in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                if isOn {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(palette.brassLabel, lineWidth: 1.5)
+                }
             }
             // The badge sits on the card's edge, as in the design — computed from the real
             // prices, never hardcoded.
@@ -296,11 +301,9 @@ struct PaywallView: View {
     }
 
     private var placeholderCard: some View {
-        RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(palette.glassCard)
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(palette.glassBorder, lineWidth: 1))
+        Color.clear
             .frame(height: 78)
+            .glass(.card)
     }
 
     /// Two states, never both at once.

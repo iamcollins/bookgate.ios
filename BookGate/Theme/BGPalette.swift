@@ -36,12 +36,10 @@ struct BGPalette: Equatable {
     let actionStops: [Gradient.Stop]
     let actionText: Color
 
-    // Glass
-    let glassQuiet: Color
-    let glassCard: Color
-    let glassProminent: Color
-    let glassBorder: Color
-    let glassInner: Color         // inset top highlight, always present on glass
+    // Glass. One material now — the system's — so what a theme supplies is the warm it is
+    // retuned with, not five hand-mixed fills. `glassLift` is that warm, opaque; the level
+    // ladder in `glass(_:interactive:)` decides how much of it a surface carries.
+    let glassLift: Color
 
     // Lines & recesses
     let hairline: Color
@@ -71,6 +69,23 @@ struct BGPalette: Equatable {
         case .disabled:  a = 0.30
         }
         return Color(hex: inkBase, opacity: min(1, a + inkBump))
+    }
+
+    // MARK: Glass
+
+    /// The material for a surface at `level`. Liquid Glass has one regular material and a tint;
+    /// the handoff's three glass fills were three opacities of a *painted* pane, so they map to
+    /// how much warm the glass carries, not to how thick it is. Quiet takes none: it is the page's
+    /// own glass, and a tint there reads as a colour wash rather than as a surface.
+    func glass(_ level: GlassLevel, interactive: Bool = false) -> Glass {
+        let tint: Color?
+        switch level {
+        case .quiet:     tint = nil
+        case .card:      tint = glassLift.opacity(isDark ? 0.08 : 0.14)
+        case .prominent: tint = glassLift.opacity(isDark ? 0.16 : 0.26)
+        }
+        let g = Glass.regular.tint(tint)
+        return interactive ? g.interactive() : g
     }
 
     // MARK: Gradients (top → bottom, matching the CSS 180deg)
@@ -107,11 +122,7 @@ struct BGPalette: Equatable {
             .init(color: Color(hex: 0xC0863F), location: 1.00),
         ],
         actionText: Color(hex: 0x241606),
-        glassQuiet: Color(hex: 0xFFF0DE, opacity: 0.07),
-        glassCard: Color(hex: 0xFFF0DE, opacity: 0.085),
-        glassProminent: Color(hex: 0xFFF0DE, opacity: 0.10),
-        glassBorder: Color(hex: 0xFFE8CC, opacity: 0.16),
-        glassInner: Color(hex: 0xFFF0DC, opacity: 0.20),
+        glassLift: Color(hex: 0xFFF0DE),
         hairline: Color(hex: 0xFFE8CC, opacity: 0.12),
         recess: Color(hex: 0xFFF0DE, opacity: 0.04),
         tabInactive: Color(hex: 0xF7EFE4, opacity: 0.40),
@@ -151,11 +162,7 @@ struct BGPalette: Equatable {
             .init(color: Color(hex: 0xB87A2E), location: 1.00),
         ],
         actionText: Color(hex: 0x2A1A08),
-        glassQuiet: Color(hex: 0xFFFCF6, opacity: 0.68),
-        glassCard: Color(hex: 0xFFFCF6, opacity: 0.73),
-        glassProminent: Color(hex: 0xFFFCF6, opacity: 0.78),
-        glassBorder: Color(hex: 0xFFFFFF, opacity: 0.92),
-        glassInner: Color(hex: 0xFFFFFF, opacity: 0.90),
+        glassLift: Color(hex: 0xFFFCF6),
         hairline: Color(hex: 0x231A12, opacity: 0.10),
         recess: Color(hex: 0x231A12, opacity: 0.05),
         tabInactive: Color(hex: 0x231A12, opacity: 0.58),

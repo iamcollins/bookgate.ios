@@ -45,7 +45,7 @@ struct GlassButtonStyle: ButtonStyle {
             .frame(minHeight: minHeight)
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
-            .glass(.card, cornerRadius: cornerRadius)
+            .glass(.card, cornerRadius: cornerRadius, interactive: true)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }

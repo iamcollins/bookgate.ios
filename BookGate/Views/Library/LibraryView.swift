@@ -28,7 +28,7 @@ struct LibraryView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 64)
-                .padding(.bottom, 120)
+                .padding(.bottom, 24)   // the system tab bar insets the rest
                 }
                 .scrollContentBackground(.hidden)
                 .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
@@ -45,7 +45,8 @@ struct LibraryView: View {
             #endif
         }
         .sheet(isPresented: $showAdd) {
-            AddBookView().environment(services)
+            // Its own presentation, so it needs its own theme root — see TodayView.
+            AddBookView().environment(services).themedRoot(services.settings.theme)
         }
     }
 

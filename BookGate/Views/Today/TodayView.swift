@@ -36,21 +36,28 @@ struct TodayView: View {
                     Spacer(minLength: 0)
                     bottomSheet
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 104)   // clear the floating tab bar
+                        .padding(.bottom, 12)   // the system tab bar insets the rest
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .ignoresSafeArea(edges: .top)
         }
         .sheet(isPresented: $showLengthSheet) {
-            TonightLengthSheet()
+                // A sheet is its own presentation with its own trait collection: the
+                // `preferredColorScheme` set out on the tab shell does not reach it, so a sheet
+                // left open across a theme change kept the old system material under the new ink.
+                // Invisible while the glass was ours — the palette *is* inherited — and plain the
+                // moment the material became the system's.
+                TonightLengthSheet()
                 .environment(services)
+                .themedRoot(services.settings.theme)
                 .presentationDetents([.height(360)])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack { SettingsView() }
                 .environment(services)
+                .themedRoot(services.settings.theme)
         }
     }
 
@@ -277,11 +284,11 @@ struct TodayView: View {
             let active = player.currentID == t.id
             Button { player.toggle(t, url: services.takeaways.audioURL(for: t)) } label: {
                 HStack(spacing: 12) {
-                    ZStack {
-                        Circle().fill(palette.glassProminent).frame(width: 38, height: 38)
-                        Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
-                            .font(.system(size: 13, weight: .bold)).foregroundStyle(palette.brassValue)
-                    }
+                    Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(palette.brassValue)
+                        .frame(width: 38, height: 38)
+                        .glassCircle(.prominent)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Last takeaway").sectionLabel(color: palette.ink(.caption))
                         Text(takeawayLabel(t))

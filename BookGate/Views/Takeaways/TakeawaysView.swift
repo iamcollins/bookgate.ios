@@ -29,7 +29,7 @@ struct TakeawaysView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 64)
-                .padding(.bottom, 120)
+                .padding(.bottom, 24)   // the system tab bar insets the rest
             }
             .scrollContentBackground(.hidden)
             .scrollBounceBehavior(.basedOnSize)   // no rubber-band on a screen whose content already fits
@@ -88,12 +88,11 @@ struct TakeawaysView: View {
         return VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Button { toggle(t) } label: {
-                    ZStack {
-                        Circle().fill(palette.glassProminent).frame(width: 42, height: 42)
-                        Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(palette.brassValue)
-                    }
+                    Image(systemName: (active && player.isPlaying) ? "pause.fill" : "play.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(palette.brassValue)
+                        .frame(width: 42, height: 42)
+                        .glassCircle(.prominent)
                 }.buttonStyle(.plain)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(dayLabel(t.date)).font(BGFont.row).foregroundStyle(palette.ink(.strong))

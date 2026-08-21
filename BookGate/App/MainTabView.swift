@@ -22,8 +22,16 @@ enum BGTab: Int, CaseIterable, Identifiable {
     }
 }
 
-/// The four-tab shell with a floating glass tab bar. Content sits behind the bar (the ambient runs
-/// full-bleed); each screen owns its own scroll + bottom inset.
+/// The four-tab shell on the **system tab bar**.
+///
+/// This was a hand-built `HStack` in a `ZStack` for a long time, because the handoff draws the bar
+/// as a floating rounded panel and a web mockup cannot show OS chrome. iOS 26's own tab bar *is*
+/// that floating panel — Liquid Glass, its own shadow, and a selection bubble that morphs between
+/// tabs — so the custom one was reproducing, badly, a component the platform ships. Everything it
+/// used to hand-draw (material, bubble, shadow, the inactive/active tints, the accessibility
+/// traits, minimising as content scrolls) now comes from `TabView`.
+///
+/// The ambient wash rides behind Today only; Library, Takeaways and Progress each draw their own.
 struct MainTabView: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
@@ -49,91 +57,24 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            BGAmbientBackground()
-
-            Group {
-                switch tab {
-                case .today:     TodayView()
-                case .library:   LibraryView()
-                case .takeaways: TakeawaysView()
-                case .progress:  ProgressScreen()
+        TabView(selection: $tab) {
+            Tab(BGTab.today.title, systemImage: BGTab.today.symbol, value: BGTab.today) {
+                ZStack {
+                    BGAmbientBackground()
+                    TodayView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            BGTabBar(selection: $tab)
-        }
-    }
-}
-
-/// The floating glass panel: radius 26, fill `.07`, border `.14`, blur 20, a soft top shadow.
-/// Inactive icons ink .4, active brass. Today's icon is the bookmark motif.
-///
-/// No home indicator. The handoff's frames draw one as a `<div>` because a web mockup has no OS
-/// chrome to borrow; on the phone iOS draws the real one, so copying the div gave the screen two —
-/// a decoy 130×5 capsule sitting a centimetre above the genuine article. The 18pt of bottom
-/// padding is what that capsule and its spacing used to occupy, so the panel has not moved.
-struct BGTabBar: View {
-    @Binding var selection: BGTab
-    @Environment(\.bgPalette) private var palette
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(BGTab.allCases) { tab in
-                tabButton(tab)
+            Tab(BGTab.library.title, systemImage: BGTab.library.symbol, value: BGTab.library) {
+                LibraryView()
+            }
+            Tab(BGTab.takeaways.title, systemImage: BGTab.takeaways.symbol, value: BGTab.takeaways) {
+                TakeawaysView()
+            }
+            Tab(BGTab.progress.title, systemImage: BGTab.progress.symbol, value: BGTab.progress) {
+                ProgressScreen()
             }
         }
-        .padding(.top, 11)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 5)
-        .background {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(palette.glassQuiet))
-                .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
-                    .strokeBorder(palette.glassBorder, lineWidth: 1))
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        // `0 -1px 16px rgba(0,0,0,.35)` on dark, `rgba(90,60,30,.2)` on light. Black was
-        // hardcoded here for both, and on paper a black cast reads as grime, not depth.
-        .shadow(color: palette.shadowColor.opacity(palette.isDark ? 0.35 : 0.20),
-                radius: 16, x: 0, y: -1)
-        .padding(.horizontal, 44)
-        .padding(.bottom, 18)
-    }
-
-    private func tabButton(_ tab: BGTab) -> some View {
-        let active = tab == selection
-        // Both from the palette: this bar is themed, and the dark palette's cream at .4 over the
-        // light bar's near-white material left Library, Takeaways and Progress invisible.
-        let tint = active ? palette.brassLabel : palette.tabInactive
-        return Button {
-            selection = tab
-        } label: {
-            VStack(spacing: 4) {
-                Group {
-                    if tab == .today {
-                        BookmarkShape(notch: 0.74)
-                            .fill(active ? palette.brassObject : LinearGradient(colors: [tint, tint], startPoint: .top, endPoint: .bottom))
-                            .frame(width: 14, height: 19)
-                    } else {
-                        Image(systemName: tab.symbol)
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(tint)
-                            .frame(height: 19)
-                    }
-                }
-                Text(tab.title)
-                    .font(BGFont.ui(9.5, .medium))
-                    .foregroundStyle(tint)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(tab.title)
-        .accessibilityAddTraits(active ? [.isSelected, .isButton] : .isButton)
+        // The one thing the bar still takes from the palette: brass marks the selected tab.
+        .tint(palette.brassLabel)
     }
 }

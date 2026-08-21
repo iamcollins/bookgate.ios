@@ -68,7 +68,7 @@ struct BookDetailsView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(palette.ink(.strong))
                     .frame(width: 44, height: 44)
-                    .background(Circle().fill(palette.glassCard))
+                    .glassCircle()
             }
             Spacer()
         }

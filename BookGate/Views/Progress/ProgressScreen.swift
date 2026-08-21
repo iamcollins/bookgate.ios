@@ -44,7 +44,7 @@ struct ProgressScreen: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 64)
-        .padding(.bottom, 120)
+        .padding(.bottom, 24)   // the system tab bar insets the rest
     }
 
     // MARK: Fact 1 — streak

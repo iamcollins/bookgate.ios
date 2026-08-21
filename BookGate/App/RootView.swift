@@ -29,13 +29,20 @@ struct RootView: View {
             // while an alarm rings or a session runs, and with no way to dismiss. `subscriptionWall`
             // (SubscriptionKit) owns the rule that a still-`unknown` entitlement is NOT walled, so a
             // paying subscriber never meets the wall on a slow launch.
+            //
+            // `themedRoot` goes *outside* the wall, not between it and the tab view. The wall's
+            // content is built where the modifier is applied, so with the order reversed the
+            // paywall sat outside the injected palette and fell back to the dark default — while
+            // `preferredColorScheme` had already put the window in light. Hand-painted glass hid
+            // that, because it drew itself from the same palette the ink came from; the system's
+            // glass does not, and rendered a light-mode material under dark-mode ink.
             MainTabView()
-                .themedRoot(services.settings.theme)
                 .subscriptionWall(store: services.subscription,
                                   suppressedWhile: services.session.phase != .idle) {
                     PaywallView(onSubscribed: {})
                         .transition(.opacity)
                 }
+                .themedRoot(services.settings.theme)
 
             // The night flow takes over the whole screen (always dark) whenever it is running.
             if services.session.phase != .idle {
