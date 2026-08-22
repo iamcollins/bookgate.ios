@@ -1,4 +1,5 @@
 import SwiftUI
+import FamilyControls
 
 /// Today (screen 4b / light 2a). The book is the screen: its cover bleeds off the top under a
 /// wordmark row; a bottom glass sheet carries Tonight, the one primary action, and the last
@@ -7,12 +8,15 @@ import SwiftUI
 struct TodayView: View {
     /// Sends the reader to Library. Supplied by the tab shell, which owns the selection.
     var onOpenLibrary: () -> Void = {}
+    /// Sends the reader to Progress — where the streak chip goes when tapped.
+    var onOpenProgress: () -> Void = {}
 
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
 
     @State private var showLengthSheet = false
     @State private var showSettings = false
+    @State private var showAddBook = false
     @State private var player = AudioPlayer()
 
     private var book: Book? { services.books.currentReading }
@@ -70,6 +74,13 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showSettings) {
             NavigationStack { SettingsView() }
+                .environment(services)
+                .themedRoot(services.settings.theme)
+        }
+        // Straight to the sheet. Sending a reader with no books to Library only to have them
+        // press Add there was a step that existed for the code's benefit, not theirs.
+        .sheet(isPresented: $showAddBook) {
+            AddBookView()
                 .environment(services)
                 .themedRoot(services.settings.theme)
         }
@@ -184,7 +195,9 @@ struct TodayView: View {
                 .font(BGFont.serif(30, .medium))
                 .foregroundStyle(palette.ink(.hero))
                 .multilineTextAlignment(.center)
-            Button { onOpenLibrary() } label: {
+            Button {
+                if libraryIsEmpty { showAddBook = true } else { onOpenLibrary() }
+            } label: {
                 HStack(spacing: 7) {
                     Text(libraryIsEmpty ? "Add your first book" : "Choose a book")
                         .font(BGFont.ui(14.5, .semibold))
@@ -234,17 +247,25 @@ struct TodayView: View {
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
 
-        Group {
-            if hasBook {
-                // A scrim capsule, because the cover behind it is a photograph and glass would
-                // take its colour from whatever happens to be printed there.
-                chip.background(Capsule().fill(Color(hex: 0x140E09, opacity: 0.38)))
-            } else {
-                chip.glass(.card, cornerRadius: 14)
+        // It looks like a control and reads like one, so it is: the streak's own screen is
+        // Progress, and the alternative — flattening it until nobody tries — spends the
+        // instinct rather than rewarding it.
+        Button { onOpenProgress() } label: {
+            Group {
+                if hasBook {
+                    // A scrim capsule, because the cover behind it is a photograph and glass
+                    // would take its colour from whatever happens to be printed there.
+                    chip.background(Capsule().fill(Color(hex: 0x140E09, opacity: 0.38)))
+                } else {
+                    chip.glass(.card, cornerRadius: 14)
+                }
             }
+            .contentShape(Capsule())
         }
+        .buttonStyle(.plain)
         .opacity(missedYesterday ? 0.55 : 1)      // chip goes quiet on a miss — no red, no drama
         .accessibilityLabel("\(streak) night streak")
+        .accessibilityHint("Opens Progress")
     }
 
     // MARK: Bottom glass sheet
@@ -259,25 +280,49 @@ struct TodayView: View {
                     .frame(maxWidth: .infinity)
             }
 
-            tonightRow
+            scheduleBlock
 
-            if readToday {
-                Button("You've read today") {}
-                    .buttonStyle(GlassButtonStyle(minHeight: 56))
-                    .disabled(true)
-            } else {
-                VStack(spacing: 8) {
-                    Button("Start Reading") { beginReading() }
-                        .buttonStyle(PrimaryActionButtonStyle())
-                    Text(reassurance)
-                        .font(BGFont.aside(13.5)).foregroundStyle(palette.ink(.secondary))
-                }
-            }
+            actionArea
 
             lastTakeawayRow
         }
         .padding(18)
         .glass(.prominent, cornerRadius: 28)
+    }
+
+    /// The action. Which one it is depends on **where the clock is**, not on what the reader has
+    /// already done.
+    ///
+    /// Inside the scheduled window — the start time through its duration, so arriving a few
+    /// minutes late still counts — reading is the session the app asked for, and takes the brass.
+    /// Outside it, before or after, reading is something the reader added: it still runs the whole
+    /// flow and still counts, but it is their idea rather than the app's, so it takes the quiet
+    /// button. With nothing scheduled at all there is no window and no competition, so reading now
+    /// simply is the session.
+    ///
+    /// An earlier version of this branched on "have they read today", which produced states that
+    /// disagreed with the clock — a loud Start Reading at four in the afternoon against a nine
+    /// o'clock schedule.
+    @ViewBuilder private var actionArea: some View {
+        if isScheduledMoment {
+            VStack(spacing: 8) {
+                Button("Start Reading") { beginReading() }
+                    .buttonStyle(PrimaryActionButtonStyle())
+                Text(reassurance)
+                    .font(BGFont.aside(13.5)).foregroundStyle(palette.ink(.secondary))
+            }
+        } else {
+            Button("Log a session") { beginReading() }
+                .buttonStyle(GlassButtonStyle(minHeight: 56))
+        }
+    }
+
+    /// True inside today's scheduled window, and true when nothing is scheduled at all.
+    private var isScheduledMoment: Bool {
+        guard let alarm, alarm.isOn, alarm.days.contains(true) else { return true }
+        guard let window = alarm.window(on: .now, minutes: services.settings.effectiveTonightLength)
+        else { return false }                      // an inactive night: no session was asked for
+        return window.contains(Date())
     }
 
     /// One calm line above tonight's row, or nothing at all. A rest day is named as the rule
@@ -293,44 +338,69 @@ struct TodayView: View {
         return nil
     }
 
-    private var tonightRow: some View {
-        Button { showLengthSheet = true } label: {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Tonight").sectionLabel()
-                    Text("\(timeLabel) · \(lengthLabel)")
-                        .font(BGFont.serif(22, .medium))
-                        .foregroundStyle(palette.ink(.hero))
-                    Text(shieldSubtitle)
-                        .font(BGFont.caption)
+    /// Time · length, and beneath it the shield — two separate things that tap to two separate
+    /// places, in one bordered block the way the handoff's card carries its shield footer.
+    ///
+    /// They used to be one row: the subtitle read "Choose apps to shield · tap to change" while
+    /// tapping opened the *length* sheet. The line promised something the tap did not do.
+    private var scheduleBlock: some View {
+        VStack(spacing: 0) {
+            Button { showLengthSheet = true } label: {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(scheduleLabel).sectionLabel()
+                        Text("\(timeLabel) · \(lengthLabel)")
+                            .font(BGFont.serif(22, .medium))
+                            .foregroundStyle(palette.ink(.hero))
+                        Text(alarm?.dayLabel ?? String(localized: "Every night"))
+                            .font(BGFont.caption)
+                            .foregroundStyle(palette.ink(.secondary))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(palette.ink(.secondary))
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(palette.ink(.secondary))
+                .padding(14)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
             }
-            .padding(14)
-            .frame(maxWidth: .infinity)
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(palette.hairline, lineWidth: 1))
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityHint("Change the reading time and length")
+
+            Hairline().padding(.horizontal, 14)
+
+            TonightShieldRow(shield: services.shield)
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Change tonight's reading length")
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .strokeBorder(palette.hairline, lineWidth: 1))
     }
 
-    private var shieldSubtitle: String {
-        let n = services.shield.shieldedCount
-        if n == 0 { return String(localized: "Choose apps to shield · tap to change") }
-        return String(localized: "\(n) apps shielded · tap to change")
+    /// What to call the next session. The schedule takes any minute of the day, so this is only
+    /// "Tonight" when it actually is: a 10:00 AM reading time used to be announced as "TONIGHT".
+    private var scheduleLabel: String {
+        let minute = alarm?.readingMin ?? 1260
+        // Inside the window the session is happening *now*, so ask the clock about today. Going
+        // straight to `nextOccurrence` looks past it — a minute after the start it already points
+        // at tomorrow, and the card announced "TOMORROW" over a live Start Reading button.
+        if isScheduledMoment, alarm != nil { return Schedule.periodLabel(forMinuteOfDay: minute) }
+        guard let next = alarm?.nextOccurrence() else {
+            return Schedule.periodLabel(forMinuteOfDay: minute)
+        }
+        let cal = Calendar.current
+        if cal.isDateInToday(next) { return Schedule.periodLabel(forMinuteOfDay: minute) }
+        if cal.isDateInTomorrow(next) { return String(localized: "Tomorrow") }
+        return next.formatted(.dateTime.weekday(.wide))
     }
 
-    private var reassurance: String {
-        let n = services.settings.effectiveTonightLength
-        return n == 5 ? String(localized: "Five minutes is enough to begin.")
-                      : String(localized: "\(n) minutes is enough to begin.")
-    }
+    /// One encouraging line under the action, and it has to hold at every length.
+    ///
+    /// The handoff's "Five minutes is enough to begin." was written for the five-minute default,
+    /// and its point was that the commitment is *small* — so starting is easy. Templating the
+    /// number in kept the sentence and lost the argument: "1 hour is enough to begin" tells a
+    /// reader their long commitment is a low bar. It also repeated a number the row above already
+    /// states. What is true at five minutes and at an hour is that the starting is the hard part.
+    private let reassurance = String(localized: "The hardest part is opening the book.")
 
     /// The compact "last takeaway" player row (design 4b): play circle, one-line italic quote,
     /// timecodes. Plays inline. Hidden when there are no takeaways.
@@ -374,5 +444,43 @@ struct TodayView: View {
 
     private func beginReading() {
         services.session.beginReadingNow()
+    }
+}
+
+/// The shield, on Today. Its own row and its own destination: tapping opens Apple's picker, which
+/// is the thing "choose apps to shield" was always promising.
+private struct TonightShieldRow: View {
+    @Bindable var shield: ShieldManager
+    @Environment(\.bgPalette) private var palette
+    @State private var showPicker = false
+
+    var body: some View {
+        Button { showPicker = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: shield.shieldedCount == 0 ? "lock.open" : "lock.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(palette.brassValue)
+                Text(label)
+                    .font(BGFont.caption)
+                    .foregroundStyle(palette.ink(.body))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(palette.ink(.secondary))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .familyActivityPicker(isPresented: $showPicker, selection: $shield.selection)
+        .accessibilityHint("Choose which apps are locked during a session")
+    }
+
+    private var label: String {
+        let n = shield.shieldedCount
+        if n == 0 { return String(localized: "Choose apps to shield") }
+        return String(localized: "\(n) apps shielded during your session")
     }
 }

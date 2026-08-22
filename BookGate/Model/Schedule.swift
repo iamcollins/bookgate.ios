@@ -82,6 +82,55 @@ final class Schedule {
         return pattern.contains("a")
     }
 
+    // MARK: When it next runs
+
+    /// The next moment this schedule fires, at or after `now`. `nil` when it is off or no day is
+    /// active. `days` is Monday-first; `Calendar.weekday` is Sunday-first, hence the shift.
+    func nextOccurrence(after now: Date = .now, calendar: Calendar = .current) -> Date? {
+        guard isOn, days.contains(true) else { return nil }
+        for offset in 0...7 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: now),
+                  let candidate = calendar.date(bySettingHour: readingMin / 60,
+                                                minute: readingMin % 60, second: 0, of: day),
+                  candidate >= now
+            else { continue }
+            let mondayFirst = (calendar.component(.weekday, from: candidate) + 5) % 7
+            if days[mondayFirst] { return candidate }
+        }
+        return nil
+    }
+
+    /// Whether `date` falls on one of the active nights (and the alarm is armed at all).
+    func isActive(on date: Date, calendar: Calendar = .current) -> Bool {
+        guard isOn else { return false }
+        return days[(calendar.component(.weekday, from: date) + 5) % 7]
+    }
+
+    /// The scheduled reading window on `date`'s day — the start time through `minutes` later.
+    /// `nil` when that day is not an active night, or the alarm is off.
+    ///
+    /// The window is what tells Today whether reading right now *is* the session or is extra
+    /// reading around it. Before it and after it, a session is something the reader chose to add;
+    /// inside it, it is the thing the app asked for.
+    func window(on date: Date, minutes: Int, calendar: Calendar = .current) -> ClosedRange<Date>? {
+        guard isActive(on: date, calendar: calendar),
+              let start = calendar.date(bySettingHour: readingMin / 60,
+                                        minute: readingMin % 60, second: 0, of: date)
+        else { return nil }
+        return start...start.addingTimeInterval(TimeInterval(max(1, minutes) * 60))
+    }
+
+    /// What to call a reading time that has not arrived yet. A reading alarm may be set to any
+    /// minute of the day (see `readingRange`), so "Tonight" is only sometimes true — set 10:00 in
+    /// the morning and the card was announcing "TONIGHT 10:00 AM".
+    static func periodLabel(forMinuteOfDay minutes: Int) -> String {
+        switch ((minutes % 1440) + 1440) % 1440 {
+        case ..<720:  return String(localized: "This morning")
+        case ..<1020: return String(localized: "This afternoon")      // up to 5pm
+        default:      return String(localized: "Tonight")
+        }
+    }
+
     /// A compact `9:00 PM` string for the current locale (marker appended where used).
     var timeLabel: String {
         let (t, m) = Self.hourMinute(readingMin)

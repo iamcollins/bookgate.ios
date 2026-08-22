@@ -42,6 +42,13 @@ final class AppServices {
         let loadedAlarms = SchedulePersistence.load()
         books = BookStore.load()
         store = AlarmStore(alarms: loadedAlarms)
+        #if DEBUG
+        // `BOOKGATE_READING` sets the time on a `Schedule` as it is built — which is no use when
+        // skipping onboarding leaves no schedule to build. Make the hook mean what it says.
+        if ProcessInfo.processInfo.environment["BOOKGATE_READING"] != nil, store.alarms.isEmpty {
+            store.add()
+        }
+        #endif
         progress = ProgressStore.load()
         journal = JournalStore.load()
         takeaways = TakeawayStore.load()

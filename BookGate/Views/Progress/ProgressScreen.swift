@@ -1,8 +1,13 @@
 import SwiftUI
 
 /// Progress (month 10a / year 10b). **Three facts only** — streak, current month, total time. No
-/// averages, no projections, no percentages, no goal ring. Fill weight = session length (four
-/// steps), miss = hairline outline, today = brass tint + border + dot, future = numeral only.
+/// averages, no projections, no percentages, no goal ring. Fill weight = **minutes actually read**
+/// that day (four steps), miss = hairline outline, today = brass tint + border + dot, future =
+/// numeral only.
+///
+/// The fill held the *scheduled* length until now, which meant a reader who kept the same five
+/// minutes every night saw an identical square every day — and a Short → Long legend describing a
+/// variation that could not occur.
 struct ProgressScreen: View {
     @Environment(AppServices.self) private var services
     @Environment(\.bgPalette) private var palette
@@ -57,7 +62,10 @@ struct ProgressScreen: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(progress.bestStreak)").font(BGFont.serif(22, .medium)).foregroundStyle(palette.ink(.strong))
-                Text("Longest").sectionLabel(color: palette.ink(.secondary))
+                // "Longest" alone, sitting a few points above a Short → Long *length* legend,
+                // reads as the longest session. It is the longest run of nights.
+                Text("Longest\nstreak").sectionLabel(color: palette.ink(.secondary))
+                    .multilineTextAlignment(.trailing).fixedSize()
             }
         }
     }

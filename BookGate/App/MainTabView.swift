@@ -61,7 +61,8 @@ struct MainTabView: View {
             Tab(BGTab.today.title, systemImage: BGTab.today.symbol, value: BGTab.today) {
                 ZStack {
                     BGAmbientBackground()
-                    TodayView(onOpenLibrary: { tab = .library })
+                    TodayView(onOpenLibrary: { tab = .library },
+                              onOpenProgress: { tab = .progress })
                 }
             }
             Tab(BGTab.library.title, systemImage: BGTab.library.symbol, value: BGTab.library) {
