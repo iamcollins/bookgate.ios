@@ -57,6 +57,20 @@ final class ShieldManager: ShieldControlling {
         return authorized
     }
 
+    /// Authorization, but for the picker's sake — approved already, or ask now.
+    ///
+    /// `FamilyActivityPicker` draws its category shells whether or not the app has Screen Time
+    /// access, and expanding one without it shows nothing at all. So the picker must never be
+    /// opened before this returns true, or the reader is handed an empty list with no explanation.
+    @discardableResult
+    func authorizeForPicker() async -> Bool {
+        if AuthorizationCenter.shared.authorizationStatus == .approved {
+            authorized = true
+            return true
+        }
+        return await requestAuthorization()
+    }
+
     // MARK: Shield lifecycle
 
     /// Raise the shield for the reading window. No-op without authorization or an empty selection.

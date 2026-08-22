@@ -434,7 +434,7 @@ struct AppsStep: View {
             Button("Shield these while I read") { next() }.buttonStyle(PrimaryActionButtonStyle(minHeight: 56))
         }
         .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 40)
-        .familyActivityPicker(isPresented: $showPicker, selection: $shield.selection)
+        .shieldPicker(isPresented: $showPicker, shield: shield)
     }
 
     private func categoryRow(_ name: String, _ symbol: String) -> some View {

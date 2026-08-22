@@ -474,7 +474,7 @@ private struct TonightShieldRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .familyActivityPicker(isPresented: $showPicker, selection: $shield.selection)
+        .shieldPicker(isPresented: $showPicker, shield: shield)
         .accessibilityHint("Choose which apps are locked during a session")
     }
 
