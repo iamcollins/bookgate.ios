@@ -71,6 +71,9 @@ final class SessionCoordinator {
     /// follow. Asking "is it a definite yes?" instead denied the shield to a paying reader
     /// whose StoreKit answer had simply not landed yet.
     private let subscriptionAllows: () -> Bool
+    /// Where the running session is written. Injectable so tests get an isolated store — the
+    /// restore runs in `init`, so a shared one would leak a session between them.
+    private let defaults: UserDefaults
 
     private var ticker: Task<Void, Never>?
     private let watchdogDelay: TimeInterval = 120
@@ -78,7 +81,8 @@ final class SessionCoordinator {
     init(scheduleForID: @escaping (UUID?) -> Schedule?,
          progress: ProgressStore, journal: JournalStore, books: BookStore,
          settings: ReadingSettings, scheduler: AlarmScheduler, shield: ShieldControlling,
-         subscriptionAllows: @escaping () -> Bool = { true }) {
+         subscriptionAllows: @escaping () -> Bool = { true },
+         defaults: UserDefaults = .standard) {
         self.scheduleForID = scheduleForID
         self.progress = progress
         self.journal = journal
@@ -87,6 +91,72 @@ final class SessionCoordinator {
         self.scheduler = scheduler
         self.shield = shield
         self.subscriptionAllows = subscriptionAllows
+        self.defaults = defaults
+        restoreRunningSession()
+    }
+
+    // MARK: Surviving a restart
+
+    /// The running session, on disk. The wall-clock anchors already meant a *suspended* app came
+    /// back with an honest clock — but iOS reclaims a backgrounded app routinely, and a restarted
+    /// process rebuilt this object at `.idle`, so the session simply vanished and Today offered
+    /// "Start Reading" again with minutes still to run.
+    ///
+    /// Worse than losing the screen: `beginReadingWindow()` had already been called, and
+    /// `ManagedSettingsStore` outlives the process. The shield stayed up with nothing left alive
+    /// to lower it — the reader's apps locked, and the one thing that ends a reading window gone.
+    private struct Snapshot: Codable {
+        var goalAt: Date
+        var overtimeFrom: Date?
+        var lengthMinutes: Int
+        var totalSeconds: Int
+        var goalReached: Bool
+    }
+
+    private static let snapshotKey = "bookgate.session.running.v1"
+
+    /// How long past its goal a session may still be picked up. Long enough to survive a phone
+    /// put down mid-chapter and a launch much later; short enough that yesterday's session is
+    /// never resurrected on top of tonight's.
+    private static let resumeGrace: TimeInterval = 4 * 60 * 60
+
+    private func saveSnapshot() {
+        guard phase == .session, let goalAt else { return }
+        let snap = Snapshot(goalAt: goalAt, overtimeFrom: overtimeFrom,
+                            lengthMinutes: sessionLengthMinutes, totalSeconds: sessionTotal,
+                            goalReached: goalReached)
+        if let data = try? JSONEncoder().encode(snap) {
+            defaults.set(data, forKey: Self.snapshotKey)
+        }
+    }
+
+    private func clearSnapshot() {
+        defaults.removeObject(forKey: Self.snapshotKey)
+    }
+
+    private func restoreRunningSession(now: Date = .now) {
+        guard let data = defaults.data(forKey: Self.snapshotKey),
+              let snap = try? JSONDecoder().decode(Snapshot.self, from: data) else { return }
+
+        // Too old to be tonight's. Drop it — and lower the shield, because this is the only
+        // moment anything knows a reading window was ever opened.
+        guard now < snap.goalAt.addingTimeInterval(Self.resumeGrace) else {
+            clearSnapshot()
+            shield.endReadingWindow()
+            return
+        }
+
+        sessionLengthMinutes = snap.lengthMinutes
+        sessionTotal = max(1, snap.totalSeconds)
+        goalAt = snap.goalAt
+        overtimeFrom = snap.overtimeFrom
+        goalReached = snap.goalReached
+        inOvertime = snap.overtimeFrom != nil
+        phase = .session
+        syncClock(now: now)
+        // The shield is not re-raised: `ManagedSettingsStore` kept it up across the restart, and
+        // asking again before entitlement has resolved would be raising it on a guess.
+        startTicker()
     }
 
     // MARK: Entry points
@@ -175,6 +245,7 @@ final class SessionCoordinator {
         // caller stops raising the window. A *confirmed* lapse only: see `subscriptionAllows`.
         if subscriptionAllows() { shield.beginReadingWindow() }
         phase = .session
+        saveSnapshot()
         startTicker()
     }
 
@@ -203,6 +274,7 @@ final class SessionCoordinator {
         if secondsLeft == 0 && !goalReached {
             goalReached = true
             Haptics.goalReached()
+            saveSnapshot()      // so a restart after the goal does not ring it a second time
         }
     }
 
@@ -214,6 +286,7 @@ final class SessionCoordinator {
         inOvertime = true
         overtimeFrom = now
         overtimeSecs = 0
+        saveSnapshot()
     }
 
     /// Finish the session affirmatively (at/after goal, or in overtime) — records the night.
@@ -225,16 +298,21 @@ final class SessionCoordinator {
     func endEarly() {
         ticker?.cancel()
         shield.endReadingWindow()
+        clearSnapshot()
         resetSession()
         phase = .idle
     }
 
     private func recordAndComplete() {
         ticker?.cancel()
-        let minutes = sessionLengthMinutes
+        clearSnapshot()
+        // What was actually read, not what was scheduled. A ten-minute session carried into
+        // overtime is thirty minutes of reading, and recording ten threw the rest away — out of
+        // the heatmap, and out of the total-time fact, which is a sum of exactly these numbers.
         let elapsed = TimeInterval(sessionTotal - secondsLeft) + Double(overtimeSecs)
+        let minutes = max(1, Int((elapsed / 60).rounded()))
         Haptics.success()
-        progress.recordNight(minutes: minutes, elapsed: elapsed)
+        progress.recordSession(minutes: minutes, elapsed: elapsed)
         if let bookId = books.currentReading?.idString {
             books.recordSession(bookId: bookId, minutes: minutes)
         }
@@ -286,6 +364,7 @@ final class SessionCoordinator {
     }
 
     private func resetSession() {
+        clearSnapshot()
         ticker?.cancel(); ticker = nil
         secondsLeft = 0; sessionTotal = 1
         goalAt = nil; overtimeFrom = nil
@@ -302,6 +381,13 @@ final class SessionCoordinator {
             sessionTotal = max(1, sessionLengthMinutes * 60)
             secondsLeft = Int(Double(sessionTotal) * 0.68)
             goalAt = Date().addingTimeInterval(TimeInterval(secondsLeft))
+            // Same bookkeeping a real session does, or this hook is not a stand-in for one:
+            // without the snapshot and the ticker it silently tested a session that could not
+            // survive a restart *because the harness never started one properly*.
+            self.phase = .session
+            saveSnapshot()
+            startTicker()
+            return
         case .complete, .takeaway, .stepup:
             completedMinutes = settings.effectiveTonightLength
             completedStreak = progress.liveStreak

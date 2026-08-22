@@ -4,9 +4,14 @@ import Observation
 /// The streak / progress model behind the session-complete screen and the Progress heatmap.
 ///
 /// Persisted as one Codable snapshot in UserDefaults. Beyond the scalar streak it keeps a **log of
-/// each night read and how long** — `nights[startOfDay] = minutes` — which powers the heatmap
-/// (fill weight = session length) and the total-time fact. Progress shows exactly three facts:
-/// streak, current month, total time.
+/// each day read and how long** — `nights[startOfDay] = minutes actually read` — which powers the
+/// heatmap fill and the total-time fact. Progress shows exactly three facts: streak, current
+/// month, total time.
+///
+/// The cell used to hold the *scheduled* length, so a reader who kept five minutes every night got
+/// an identical square every day and the "Short → Long" legend labelled a variation that never
+/// happened. Overtime and second sittings were invisible, and the total under-reported every hour
+/// of them. It holds real minutes now, summed across every sitting in the day.
 @MainActor @Observable
 final class ProgressStore {
 
@@ -14,8 +19,8 @@ final class ProgressStore {
     private(set) var bestStreak = 0
     private(set) var lastReadDay: Date?
 
-    /// Each calendar night read (start-of-day) → minutes of that session. The heatmap reads both
-    /// the set of keys (which nights) and the values (fill weight).
+    /// Each calendar day read (start-of-day) → minutes actually read that day, across every
+    /// sitting. The heatmap reads both the set of keys (which nights) and the values (fill weight).
     private(set) var nights: [Date: Int] = [:]
 
     /// Elapsed seconds of the most recent completed session, for the complete screen.
@@ -89,12 +94,16 @@ final class ProgressStore {
         return gap >= 2
     }
 
-    /// Record a completed reading session. Streak advances once per calendar day.
-    func recordNight(minutes: Int, elapsed: TimeInterval, now: Date = .now) {
+    /// Record a completed reading session — the scheduled one, or an extra sitting.
+    ///
+    /// Minutes **add up** within a day; the streak advances **once** per calendar day however many
+    /// sittings there are. Those are deliberately different rules: time read is a quantity, and
+    /// keeping the habit is not.
+    func recordSession(minutes: Int, elapsed: TimeInterval, now: Date = .now) {
         let cal = Calendar.current
         let day = cal.startOfDay(for: now)
         lastElapsed = elapsed
-        nights[day] = max(nights[day] ?? 0, minutes)
+        nights[day] = (nights[day] ?? 0) + max(0, minutes)
 
         if let last = lastReadDay {
             let gap = dayGap(from: last, to: now, cal)

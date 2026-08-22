@@ -20,19 +20,88 @@ private final class SpyShield: ShieldControlling {
 @MainActor
 final class SessionTimingTests: XCTestCase {
 
+    private var suites: [UserDefaults] = []
+
+    override func tearDown() {
+        for suite in suites { suite.removePersistentDomain(forName: suite.description) }
+        suites = []
+        super.tearDown()
+    }
+
+    /// A store of its own per test. The restore runs in `init`, so a shared one would hand one
+    /// test's running session to the next.
+    private func isolatedDefaults() -> UserDefaults {
+        let name = "test.session.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: name)!
+        suites.append(suite)
+        return suite
+    }
+
+    private var lastProgress = ProgressStore()
+
     private func makeCoordinator(shield: ShieldControlling,
-                                 length: Int = 20) -> (SessionCoordinator, ReadingSettings) {
+                                 length: Int = 20,
+                                 defaults: UserDefaults? = nil) -> (SessionCoordinator, ReadingSettings) {
         let settings = ReadingSettings()
         settings.defaultLength = length
+        lastProgress = ProgressStore()
         let coordinator = SessionCoordinator(
             scheduleForID: { _ in nil },
-            progress: ProgressStore(),
+            progress: lastProgress,
             journal: JournalStore(),
             books: BookStore(),
             settings: settings,
             scheduler: AlarmScheduler(),
-            shield: shield)
+            shield: shield,
+            defaults: defaults ?? isolatedDefaults())
         return (coordinator, settings)
+    }
+
+    // MARK: Surviving a restart
+
+    /// iOS reclaims a backgrounded app routinely. The rebuilt process used to come back at `.idle`
+    /// — Today offering "Start Reading" with minutes still to run — because nothing about the
+    /// session was written down.
+    func testARunningSessionSurvivesTheProcessBeingKilled() {
+        let store = isolatedDefaults()
+        let start = Date().addingTimeInterval(-6 * 60)          // started six minutes ago
+        let (first, _) = makeCoordinator(shield: SpyShield(), length: 20, defaults: store)
+        first.startSession(now: start)
+
+        // The process dies and a fresh coordinator is built against the same store.
+        let (restored, _) = makeCoordinator(shield: SpyShield(), length: 20, defaults: store)
+
+        XCTAssertEqual(restored.phase, .session, "the session must come back, not vanish")
+        XCTAssertEqual(restored.sessionLengthMinutes, 20)
+        XCTAssertEqual(Double(restored.secondsLeft), 14 * 60, accuracy: 2,
+                       "and it must resume where the wall clock says, not where it started")
+    }
+
+    /// Last night's session must never reappear on top of tonight — and dropping it is the only
+    /// moment anything still knows a reading window was opened, so that is where the shield
+    /// comes down.
+    func testAStaleSessionIsDiscardedAndLowersTheShield() {
+        let store = isolatedDefaults()
+        let (first, _) = makeCoordinator(shield: SpyShield(), length: 20, defaults: store)
+        first.startSession(now: Date().addingTimeInterval(-9 * 60 * 60))   // last night
+
+        let shield = SpyShield()
+        let (restored, _) = makeCoordinator(shield: shield, length: 20, defaults: store)
+
+        XCTAssertEqual(restored.phase, .idle, "a session from hours ago is not tonight's")
+        XCTAssertEqual(shield.lowered, 1,
+                       "the shield outlives the process — something has to take it down")
+    }
+
+    /// Finishing clears the record, so the next launch is a clean one.
+    func testEndingEarlyLeavesNothingToRestore() {
+        let store = isolatedDefaults()
+        let (first, _) = makeCoordinator(shield: SpyShield(), length: 20, defaults: store)
+        first.startSession(now: Date())
+        first.endEarly()
+
+        let (restored, _) = makeCoordinator(shield: SpyShield(), length: 20, defaults: store)
+        XCTAssertEqual(restored.phase, .idle)
     }
 
     /// The clock is read off the wall, not off how many ticks the app got to run.
@@ -122,5 +191,42 @@ final class SessionTimingTests: XCTestCase {
         session.finishSession()
         XCTAssertNil(settings.tonightLength, "a tonight-only change must not become the default")
         XCTAssertEqual(settings.defaultLength, 10)
+    }
+
+    // MARK: What gets written down
+
+    /// The record is the time actually read, not the time scheduled. A ten-minute commitment
+    /// carried into overtime is half an hour of reading, and storing ten dropped the rest — out
+    /// of the heatmap, and out of the total-time fact, which is a sum of exactly these numbers.
+    func testOvertimeIsRecorded() {
+        let (session, _) = makeCoordinator(shield: SpyShield(), length: 10)
+        let start = Date()
+        session.startSession(now: start)
+
+        session.syncClock(now: start.addingTimeInterval(10 * 60))       // goal
+        session.keepReading(now: start.addingTimeInterval(10 * 60))
+        session.syncClock(now: start.addingTimeInterval(25 * 60))       // 15 more
+        session.finishSession()
+
+        let today = Calendar.current.startOfDay(for: Date())
+        XCTAssertEqual(lastProgress.minutes(on: today), 25,
+                       "ten scheduled plus fifteen of overtime is twenty-five minutes read")
+    }
+
+    /// A second sitting adds its time and leaves the streak alone — reading more is a quantity,
+    /// keeping the habit is not.
+    func testASecondSittingAddsTimeButNotAStreakNight() {
+        let (first, _) = makeCoordinator(shield: SpyShield(), length: 10)
+        let progress = lastProgress
+        first.startSession(now: Date())
+        first.syncClock(now: Date().addingTimeInterval(10 * 60))
+        first.finishSession()
+        let streakAfterFirst = progress.currentStreak
+
+        progress.recordSession(minutes: 20, elapsed: 20 * 60)
+
+        let today = Calendar.current.startOfDay(for: Date())
+        XCTAssertEqual(progress.minutes(on: today), 30)
+        XCTAssertEqual(progress.currentStreak, streakAfterFirst, "one night, however many sittings")
     }
 }
